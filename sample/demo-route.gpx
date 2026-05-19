@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Hiking PWA Demo">
+  <wpt lat="24.18720" lon="121.31020">
+    <name>登山口</name>
+    <ele>1980</ele>
+  </wpt>
+  <wpt lat="24.19460" lon="121.32160">
+    <name>水源</name>
+    <ele>2240</ele>
+  </wpt>
+  <wpt lat="24.20480" lon="121.33250">
+    <name>營地</name>
+    <ele>2560</ele>
+  </wpt>
+  <trk>
+    <name>示範航跡</name>
+    <trkseg>
+      <trkpt lat="24.18720" lon="121.31020"><ele>1980</ele></trkpt>
+      <trkpt lat="24.18910" lon="121.31290"><ele>2050</ele></trkpt>
+      <trkpt lat="24.19130" lon="121.31620"><ele>2140</ele></trkpt>
+      <trkpt lat="24.19460" lon="121.32160"><ele>2240</ele></trkpt>
+      <trkpt lat="24.19820" lon="121.32580"><ele>2380</ele></trkpt>
+      <trkpt lat="24.20140" lon="121.32940"><ele>2475</ele></trkpt>
+      <trkpt lat="24.20480" lon="121.33250"><ele>2560</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
