@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hiking-pwa-v6';
+const CACHE_NAME = 'hiking-pwa-v7';
 const APP_SHELL = [
   './',
   './index.html',
