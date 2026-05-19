@@ -720,14 +720,23 @@ function updateDepartureChecklist() {
 }
 
 async function importMapPackage(file) {
-  const lowerName = file.name.toLowerCase();
+  const lowerName = (file.name || '').toLowerCase();
   if (lowerName.endsWith('.map')) {
     return importMapsforgeMap(file);
   }
   if (lowerName.endsWith('.mbtiles')) {
     return importMbtiles(file);
   }
-  throw new Error('請選擇魯地圖 .map 或 .mbtiles 圖資');
+
+  const signature = decodeAscii(new Uint8Array(await file.slice(0, 32).arrayBuffer()));
+  if (signature.startsWith('SQLite format 3')) {
+    return importMbtiles(file);
+  }
+  if (signature.startsWith('mapsforge binary OSM')) {
+    return importMapsforgeMap(file);
+  }
+
+  throw new Error('請選擇魯地圖 .map 或 .mbtiles 圖資；若手機改掉副檔名，請重新命名成 rudy-test.mbtiles');
 }
 
 async function importMbtiles(file) {
