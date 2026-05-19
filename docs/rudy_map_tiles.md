@@ -12,6 +12,12 @@
 .\tools\convert_rudy_map_to_mbtiles.ps1
 ```
 
+如果目前命令列不在專案根目錄，請先切換：
+
+```powershell
+cd "C:\Users\881025\OneDrive - Digital Kingstone Co.,Ltd\claude專案\登山APP"
+```
+
 預設會輸出：
 
 ```text
@@ -44,6 +50,16 @@ tiles\rudy-taipei-z12-z16.mbtiles
 ```
 
 `GpxBuffer 0.03` 大約是在路線外圍多留 3 公里左右，避免走偏時沒有底圖。
+
+GPX 可以使用完整路徑，例如：
+
+```powershell
+.\tools\convert_rudy_map_to_mbtiles.ps1 `
+  -Gpx "G:\我的雲端硬碟\雪山主峰｜雪主東_Joyhike.gpx" `
+  -Output ".\tiles\route-z12-z16.mbtiles" `
+  -MinZoom 12 `
+  -MaxZoom 16
+```
 
 ## 轉整個台灣
 

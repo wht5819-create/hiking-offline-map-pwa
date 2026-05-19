@@ -14,13 +14,36 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $toolDir = Join-Path $projectRoot "tools\rudy-map-tiler"
-$inputFull = (Resolve-Path -LiteralPath (Join-Path $projectRoot $InputMap)).Path
-$outputFull = Join-Path $projectRoot $Output
+
+function Resolve-ProjectPath([string]$PathValue, [switch]$MustExist) {
+  $candidate = if ([System.IO.Path]::IsPathRooted($PathValue)) {
+    $PathValue
+  } else {
+    Join-Path $projectRoot $PathValue
+  }
+  if ($MustExist) {
+    return (Resolve-Path -LiteralPath $candidate).Path
+  }
+  return [System.IO.Path]::GetFullPath($candidate)
+}
+
+function Convert-ToContainerPath([string]$FullPath) {
+  $root = (Resolve-Path -LiteralPath $projectRoot).Path.TrimEnd("\") + "\"
+  $rootUri = [Uri]$root
+  $fileUri = [Uri]$FullPath
+  if (!$rootUri.IsBaseOf($fileUri)) {
+    throw "Docker mode requires input/output paths under project root: $FullPath"
+  }
+  return "/work/" + ([Uri]::UnescapeDataString($rootUri.MakeRelativeUri($fileUri).ToString()))
+}
+
+$inputFull = Resolve-ProjectPath $InputMap -MustExist
+$outputFull = Resolve-ProjectPath $Output
 $outputDir = Split-Path -Parent $outputFull
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
 if ($Gpx) {
-  $gpxFull = (Resolve-Path -LiteralPath (Join-Path $projectRoot $Gpx)).Path
+  $gpxFull = Resolve-ProjectPath $Gpx -MustExist
   [xml]$gpxXml = Get-Content -LiteralPath $gpxFull -Raw
   $points = @($gpxXml.GetElementsByTagName("trkpt")) + @($gpxXml.GetElementsByTagName("rtept")) + @($gpxXml.GetElementsByTagName("wpt"))
   if ($points.Count -eq 0) {
@@ -78,7 +101,7 @@ $dockerArgs = @(
   "-w", "/work/tools/rudy-map-tiler",
   "maven:3.9-eclipse-temurin-21",
   "mvn", "-q", "package", "exec:java",
-  "-Dexec.args=--input /work/$($InputMap -replace '\\','/') --output /work/$($Output -replace '\\','/') --bbox $Bbox --minZoom $MinZoom --maxZoom $MaxZoom --maxTiles $MaxTiles --theme $Theme"
+  "-Dexec.args=--input $(Convert-ToContainerPath $inputFull) --output $(Convert-ToContainerPath $outputFull) --bbox $Bbox --minZoom $MinZoom --maxZoom $MaxZoom --maxTiles $MaxTiles --theme $Theme"
 )
 
 docker @dockerArgs
