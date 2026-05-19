@@ -33,6 +33,10 @@
 
       <section class="controls" aria-label="操作">
         <label class="file-button">
+          <input id="mapInput" type="file" accept=".mbtiles,application/octet-stream" />
+          匯入魯地圖
+        </label>
+        <label class="file-button">
           <input id="gpxInput" type="file" accept=".gpx,application/gpx+xml,text/xml" />
           匯入 GPX
         </label>
@@ -55,14 +59,28 @@
         </div>
       </section>
 
+      <section class="panel map-package" aria-label="魯地圖圖資">
+        <div class="panel-heading">
+          <h2>魯地圖圖資</h2>
+          <span id="mapName">尚未匯入</span>
+        </div>
+        <dl class="map-meta" id="mapMeta">
+          <div><dt>格式</dt><dd>--</dd></div>
+          <div><dt>層級</dt><dd>--</dd></div>
+          <div><dt>圖磚</dt><dd>--</dd></div>
+        </dl>
+        <p id="mapStatus" class="helper-text">請先匯入 `.mbtiles` 圖資，再匯入 GPX 航跡。</p>
+      </section>
+
       <section class="panel departure-check" aria-label="出發檢查">
         <div class="panel-heading">
           <h2>出發檢查</h2>
-          <span id="readyCount">0/4</span>
+          <span id="readyCount">0/5</span>
         </div>
         <ul class="check-list">
           <li data-check="secure"><span></span><strong>HTTPS</strong><em>部署後啟用</em></li>
           <li data-check="offline"><span></span><strong>離線快取</strong><em>等待快取</em></li>
+          <li data-check="map"><span></span><strong>圖資</strong><em>未匯入</em></li>
           <li data-check="gpx"><span></span><strong>GPX</strong><em>未載入</em></li>
           <li data-check="gps"><span></span><strong>定位</strong><em>未啟動</em></li>
         </ul>
@@ -81,6 +99,7 @@
         <p>Android Chrome 可用右上選單「加入主畫面」。iPhone Safari 請按分享，再選「加入主畫面」。正式使用需部署在 HTTPS 網址。</p>
       </section>
     </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
     <script src="app.js" type="module"></script>
   </body>
 </html>
