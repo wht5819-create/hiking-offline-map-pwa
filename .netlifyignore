@@ -1,0 +1,10 @@
+.npm-cache/
+npm-cache-deploy/
+.netlify/
+.netlify-cli-temp/
+.localappdata/
+.playwright-cache/
+output/
+deploy-*.zip
+web_pwa/server.log
+web_pwa/server.err.log

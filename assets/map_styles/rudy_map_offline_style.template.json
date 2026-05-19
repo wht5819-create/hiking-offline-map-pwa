@@ -1,0 +1,55 @@
+{
+  "version": 8,
+  "name": "Rudy Map Offline Template",
+  "glyphs": "asset://assets/map_styles/fonts/{fontstack}/{range}.pbf",
+  "sources": {
+    "rudy-offline": {
+      "type": "vector",
+      "tiles": ["{{TILE_URL_TEMPLATE}}"],
+      "minzoom": 0,
+      "maxzoom": 16
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#f4f1e8"
+      }
+    },
+    {
+      "id": "rudy-contour",
+      "type": "line",
+      "source": "rudy-offline",
+      "source-layer": "contour",
+      "paint": {
+        "line-color": "#9b8b64",
+        "line-width": 0.6,
+        "line-opacity": 0.72
+      }
+    },
+    {
+      "id": "ypd-road",
+      "type": "line",
+      "source": "rudy-offline",
+      "source-layer": "ypd_road",
+      "paint": {
+        "line-color": "#d04f2f",
+        "line-width": 1.4,
+        "line-opacity": 0.9
+      }
+    },
+    {
+      "id": "rudy-trail",
+      "type": "line",
+      "source": "rudy-offline",
+      "source-layer": "trail",
+      "paint": {
+        "line-color": "#3f7f58",
+        "line-width": 1.2,
+        "line-opacity": 0.9
+      }
+    }
+  ]
+}
