@@ -5,6 +5,11 @@ npm-cache-deploy/
 .localappdata/
 .playwright-cache/
 output/
+tiles/
+tools/mapsforge-src/
+tools/*.jar
+tools/rudy-map-tiler/target/
+tools/rudy-map-tiler/dependency-reduced-pom.xml
 _github_pages_web_pwa/
 *.map
 *.map.zip
