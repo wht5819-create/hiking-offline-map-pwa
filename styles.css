@@ -135,6 +135,20 @@ h2 {
   color: var(--green-strong);
 }
 
+.map-attribution {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  max-width: calc(100% - 16px);
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
 .controls {
   display: grid;
   grid-template-columns: 1.1fr 1fr 1fr 0.8fr;
