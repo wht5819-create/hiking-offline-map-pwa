@@ -12,6 +12,8 @@ const state = {
   onlineTileCache: new Map(),
 };
 
+const storedMapPackageKey = 'hiking:pwa:map-package:v1';
+
 const elements = {
   canvas: document.querySelector('#mapCanvas'),
   mapInput: document.querySelector('#mapInput'),
@@ -59,6 +61,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+restoreStoredMapPackage();
+
 elements.mapInput.addEventListener('change', async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -70,6 +74,7 @@ elements.mapInput.addEventListener('change', async (event) => {
     state.mapPackage?.db?.close();
     state.tileImageCache.clear();
     state.mapPackage = mapPackage;
+    saveStoredMapPackage(mapPackage);
     updateMapPackageSummary();
     updateDepartureChecklist();
     drawMap();
@@ -77,6 +82,7 @@ elements.mapInput.addEventListener('change', async (event) => {
     setSafetyStatus(`魯地圖已匯入：${renderNote}`, 'ok');
   } catch (error) {
     state.mapPackage = null;
+    localStorage.removeItem(storedMapPackageKey);
     updateMapPackageSummary();
     updateDepartureChecklist();
     drawMap();
@@ -402,18 +408,37 @@ function loadImage(url) {
 }
 
 function drawRoute(width, height) {
-  drawRouteStroke(width, height, 'rgba(255, 255, 255, 0.92)', 13);
-  drawRouteStroke(width, height, 'rgba(68, 36, 9, 0.92)', 9);
-  drawRouteStroke(width, height, '#ff7a1a', 5);
-  drawRouteEndpoints(width, height);
+  const screenPoints = buildRouteScreenPoints(width, height);
+  if (screenPoints.length < 2) return;
+  drawRouteStroke(screenPoints, 'rgba(255, 255, 255, 0.86)', 11);
+  drawRouteStroke(screenPoints, 'rgba(49, 58, 47, 0.64)', 7);
+  drawRouteStroke(screenPoints, '#ff6b1a', 4);
+  drawDirectionArrows(screenPoints);
+  drawDistanceBadges(screenPoints);
+  drawRouteEndpoints(screenPoints);
 }
 
-function drawRouteStroke(width, height, color, lineWidth) {
-  ctx.beginPath();
-  for (const [index, point] of state.routePoints.entries()) {
+function buildRouteScreenPoints(width, height) {
+  const minGap = 5;
+  const points = [];
+  for (const point of state.routePoints) {
     const projected = project(point, width, height);
-    if (index === 0) ctx.moveTo(projected.x, projected.y);
-    else ctx.lineTo(projected.x, projected.y);
+    const previous = points[points.length - 1];
+    if (!previous || Math.hypot(projected.x - previous.x, projected.y - previous.y) >= minGap) {
+      points.push(projected);
+    }
+  }
+  const last = project(state.routePoints[state.routePoints.length - 1], width, height);
+  const previous = points[points.length - 1];
+  if (!previous || previous.x !== last.x || previous.y !== last.y) points.push(last);
+  return points;
+}
+
+function drawRouteStroke(points, color, lineWidth) {
+  ctx.beginPath();
+  for (const [index, point] of points.entries()) {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
   }
   ctx.strokeStyle = color;
   ctx.lineWidth = lineWidth;
@@ -422,9 +447,86 @@ function drawRouteStroke(width, height, color, lineWidth) {
   ctx.stroke();
 }
 
-function drawRouteEndpoints(width, height) {
-  const start = project(state.routePoints[0], width, height);
-  const end = project(state.routePoints[state.routePoints.length - 1], width, height);
+function drawDirectionArrows(points) {
+  const targetCount = Math.min(8, Math.max(2, Math.floor(points.length / 18)));
+  const step = Math.max(10, Math.floor(points.length / (targetCount + 1)));
+  for (let index = step; index < points.length - 1; index += step) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const next = points[index + 1];
+    const angle = Math.atan2(next.y - previous.y, next.x - previous.x);
+    drawArrow(current, angle);
+  }
+}
+
+function drawArrow(point, angle) {
+  ctx.save();
+  ctx.translate(point.x, point.y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(7, 0);
+  ctx.lineTo(-6, -5);
+  ctx.lineTo(-3, 0);
+  ctx.lineTo(-6, 5);
+  ctx.closePath();
+  ctx.fillStyle = '#1f563d';
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDistanceBadges(points) {
+  if (state.routePoints.length < 2) return;
+  const totalMeters = calculateRouteLengthMeters(state.routePoints);
+  const midpoint = points[Math.floor(points.length / 2)];
+  const label = totalMeters >= 1000 ? `${(totalMeters / 1000).toFixed(1)} km` : `${Math.round(totalMeters)} m`;
+  ctx.save();
+  ctx.font = '700 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  const width = ctx.measureText(label).width + 18;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.strokeStyle = 'rgba(49, 58, 47, 0.3)';
+  ctx.lineWidth = 1;
+  roundedRectPath(midpoint.x - width / 2, midpoint.y - 28, width, 24, 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#1f563d';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, midpoint.x, midpoint.y - 16);
+  ctx.restore();
+}
+
+function roundedRectPath(x, y, width, height, radius) {
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, width, height, radius);
+    return;
+  }
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+}
+
+function calculateRouteLengthMeters(points) {
+  let total = 0;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    total += haversineMeters(points[index], points[index + 1]);
+  }
+  return total;
+}
+
+function drawRouteEndpoints(points) {
+  const start = points[0];
+  const end = points[points.length - 1];
   drawRouteMarker(start, '#2f6f4f', '起');
   drawRouteMarker(end, '#b3261e', '終');
 }
@@ -492,6 +594,41 @@ function projectIntoBounds(point, width, height, bounds) {
 
 function getViewBounds() {
   return state.bounds || state.mapPackage?.bounds || null;
+}
+
+function saveStoredMapPackage(mapPackage) {
+  if (mapPackage.type === 'mbtiles' && mapPackage.isRaster) return;
+  const stored = {
+    type: mapPackage.type,
+    fileName: mapPackage.fileName,
+    format: mapPackage.format,
+    formatLabel: mapPackage.formatLabel,
+    minZoom: mapPackage.minZoom,
+    maxZoom: mapPackage.maxZoom,
+    tileCount: mapPackage.tileCount,
+    bounds: mapPackage.bounds,
+  };
+  localStorage.setItem(storedMapPackageKey, JSON.stringify(stored));
+}
+
+function restoreStoredMapPackage() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(storedMapPackageKey) || 'null');
+    if (!stored?.bounds) return;
+    state.mapPackage = {
+      ...stored,
+      db: null,
+      metadata: {},
+      isRaster: false,
+      scheme: stored.type || 'stored',
+      restored: true,
+    };
+    updateMapPackageSummary();
+    updateDepartureChecklist();
+    setSafetyStatus('已載入上次匯入的魯地圖設定', 'ok');
+  } catch {
+    localStorage.removeItem(storedMapPackageKey);
+  }
 }
 
 function shortestDistanceToRouteMeters(point, route) {
