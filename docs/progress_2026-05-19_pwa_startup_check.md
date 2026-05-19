@@ -29,6 +29,7 @@
 | 只公開 PWA repo | 已完成 | `wht5819-create/hiking-offline-map-pwa` 只含 PWA 靜態檔，未包含 Flutter `lib/`、`docs/`、公司專案根目錄 |
 | GitHub Pages HTTPS | 已完成 | `https://wht5819-create.github.io/hiking-offline-map-pwa/` 已回 200 |
 | 魯地圖圖資匯入 | 已完成基本版 | PWA 可先選 `.map` 或 `.mbtiles`；Mapsforge `.map` 先完成辨識，raster MBTiles 會嘗試渲染底圖 |
+| 可見地形底圖 | 已完成基本版 | 已加入 OpenTopoMap 線上地形圖磚；Service Worker 會快取已瀏覽圖磚 |
 
 ## Netlify 狀態
 

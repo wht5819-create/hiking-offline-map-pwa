@@ -9,6 +9,7 @@ const state = {
   sqlReady: null,
   mapPackage: null,
   tileImageCache: new Map(),
+  onlineTileCache: new Map(),
 };
 
 const elements = {
@@ -268,6 +269,7 @@ function drawMap() {
   const width = rect.width;
   const height = rect.height;
   drawTerrain(width, height);
+  drawOnlineTopoMap(width, height);
   if (state.mapPackage?.isRaster) {
     drawRasterMap(width, height);
   } else if (state.mapPackage?.type === 'mapsforge') {
@@ -331,6 +333,72 @@ function drawMapsforgePlaceholder(width, height) {
   ctx.font = '700 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   ctx.fillText('魯地圖範圍已載入', 42, 56);
   ctx.restore();
+}
+
+async function drawOnlineTopoMap(width, height) {
+  const bounds = getViewBounds();
+  if (!bounds) return;
+  const zoom = chooseOnlineZoom(bounds, width, height);
+  const tileRange = getTileRange(bounds, zoom);
+  if (!tileRange) return;
+
+  const tiles = [];
+  for (let x = tileRange.minX; x <= tileRange.maxX; x += 1) {
+    for (let y = tileRange.minY; y <= tileRange.maxY; y += 1) {
+      const image = await readOnlineTileImage(zoom, x, y);
+      if (image) tiles.push({ x, y, image });
+    }
+  }
+
+  for (const tile of tiles) {
+    const topLeft = tileToLonLat(tile.x, tile.y, zoom);
+    const bottomRight = tileToLonLat(tile.x + 1, tile.y + 1, zoom);
+    const start = projectIntoBounds({ lon: topLeft.lon, lat: topLeft.lat }, width, height, bounds);
+    const end = projectIntoBounds({ lon: bottomRight.lon, lat: bottomRight.lat }, width, height, bounds);
+    ctx.drawImage(tile.image, start.x, start.y, end.x - start.x, end.y - start.y);
+  }
+
+  if (state.mapPackage?.type === 'mapsforge') drawMapsforgePlaceholder(width, height);
+  if (state.routePoints.length >= 2 && state.bounds) drawRoute(width, height);
+  if (state.lastAcceptedPosition) updateGpsDot(state.lastAcceptedPosition);
+}
+
+function chooseOnlineZoom(bounds, width, height) {
+  let selected = 8;
+  const maxZoom = state.routePoints.length >= 2 ? 15 : 10;
+  for (let zoom = maxZoom; zoom >= 6; zoom -= 1) {
+    const range = getTileRange(bounds, zoom);
+    if (!range) continue;
+    const tileTotal = (range.maxX - range.minX + 1) * (range.maxY - range.minY + 1);
+    if (tileTotal <= 42 || (width > 700 && height > 700 && tileTotal <= 70)) {
+      selected = zoom;
+      break;
+    }
+  }
+  return selected;
+}
+
+async function readOnlineTileImage(zoom, x, y) {
+  const key = `opentopo/${zoom}/${x}/${y}`;
+  if (state.onlineTileCache.has(key)) return state.onlineTileCache.get(key);
+  const subdomain = ['a', 'b', 'c'][(x + y) % 3];
+  const url = `https://${subdomain}.tile.opentopomap.org/${zoom}/${x}/${y}.png`;
+  try {
+    const image = await loadImage(url);
+    state.onlineTileCache.set(key, image);
+    return image;
+  } catch {
+    return null;
+  }
+}
+
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = url;
+  });
 }
 
 function drawRoute(width, height) {
@@ -656,7 +724,7 @@ function updateMapPackageSummary() {
   if (!item) {
     elements.mapStatus.textContent = '請先匯入魯地圖 `.map` 或 `.mbtiles` 圖資，再匯入 GPX 航跡。';
   } else if (item.type === 'mapsforge') {
-    elements.mapStatus.textContent = '魯地圖 Mapsforge .map 已匯入；目前先完成圖資辨識與範圍定位，尚未渲染完整底圖。';
+    elements.mapStatus.textContent = '魯地圖 Mapsforge .map 已匯入；目前用線上地形圖作為可見底圖，完整魯地圖渲染尚未完成。';
   } else if (item.isRaster) {
     elements.mapStatus.textContent = 'Raster MBTiles 已載入，匯入 GPX 後會依航跡範圍載入底圖。';
   } else {
@@ -666,7 +734,7 @@ function updateMapPackageSummary() {
 
 function getMapRenderNote(mapPackage) {
   if (mapPackage.type === 'mapsforge') {
-    return 'Mapsforge .map 已匯入，尚未渲染完整底圖';
+    return 'Mapsforge .map 已匯入，已啟用線上地形底圖';
   }
   if (mapPackage.isRaster) return '可作為地圖底圖';
   return '已匯入，vector PBF 尚未在 PWA 渲染';
