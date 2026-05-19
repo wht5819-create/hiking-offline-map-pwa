@@ -28,7 +28,7 @@
 | GitHub Pages 推送 | 公開 GitHub repo 建立被安全審核擋下，因目前工作區含完整公司專案內容 | 建議改成只公開 `web_pwa/` 靜態 PWA；需使用者明確同意公開發布 |
 | 只公開 PWA repo | 已完成 | `wht5819-create/hiking-offline-map-pwa` 只含 PWA 靜態檔，未包含 Flutter `lib/`、`docs/`、公司專案根目錄 |
 | GitHub Pages HTTPS | 已完成 | `https://wht5819-create.github.io/hiking-offline-map-pwa/` 已回 200 |
-| 魯地圖圖資匯入 | 已完成基本版 | PWA 可先選 `.mbtiles`，讀取 metadata；raster MBTiles 會嘗試渲染底圖，vector PBF 先完成匯入辨識 |
+| 魯地圖圖資匯入 | 已完成基本版 | PWA 可先選 `.map` 或 `.mbtiles`；Mapsforge `.map` 先完成辨識，raster MBTiles 會嘗試渲染底圖 |
 
 ## Netlify 狀態
 
