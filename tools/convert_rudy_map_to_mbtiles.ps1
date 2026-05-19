@@ -2,6 +2,8 @@ param(
   [string]$InputMap = ".\MOI_OSM_Taiwan_TOPO_Rudy.map\MOI_OSM_Taiwan_TOPO_Rudy.map",
   [string]$Output = ".\tiles\rudy-test.mbtiles",
   [string]$Bbox = "121.45,24.95,121.65,25.12",
+  [string]$Gpx = "",
+  [double]$GpxBuffer = 0.03,
   [int]$MinZoom = 12,
   [int]$MaxZoom = 14,
   [int]$MaxTiles = 20000,
@@ -16,6 +18,27 @@ $inputFull = (Resolve-Path -LiteralPath (Join-Path $projectRoot $InputMap)).Path
 $outputFull = Join-Path $projectRoot $Output
 $outputDir = Split-Path -Parent $outputFull
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+
+if ($Gpx) {
+  $gpxFull = (Resolve-Path -LiteralPath (Join-Path $projectRoot $Gpx)).Path
+  [xml]$gpxXml = Get-Content -LiteralPath $gpxFull -Raw
+  $points = @($gpxXml.GetElementsByTagName("trkpt")) + @($gpxXml.GetElementsByTagName("rtept")) + @($gpxXml.GetElementsByTagName("wpt"))
+  if ($points.Count -eq 0) {
+    throw "No GPX points found in $gpxFull"
+  }
+  $lats = @()
+  $lons = @()
+  foreach ($point in $points) {
+    $lats += [double]$point.lat
+    $lons += [double]$point.lon
+  }
+  $minLat = (($lats | Measure-Object -Minimum).Minimum) - $GpxBuffer
+  $maxLat = (($lats | Measure-Object -Maximum).Maximum) + $GpxBuffer
+  $minLon = (($lons | Measure-Object -Minimum).Minimum) - $GpxBuffer
+  $maxLon = (($lons | Measure-Object -Maximum).Maximum) + $GpxBuffer
+  $Bbox = "$minLon,$minLat,$maxLon,$maxLat"
+  Write-Host "Using GPX bbox: $Bbox"
+}
 
 $argsList = @(
   "-Djava.awt.headless=true",

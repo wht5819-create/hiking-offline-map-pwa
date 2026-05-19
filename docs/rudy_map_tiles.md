@@ -22,6 +22,29 @@ tiles\rudy-test.mbtiles
 
 目前已在本機驗證：小範圍測試產出 `132` 張圖磚，檔案約 `11 MB`，並可抽出 PNG 圖磚。
 
+也已產出較清楚的台北測試檔：
+
+```text
+tiles\rudy-taipei-z12-z16.mbtiles
+```
+
+這個檔案倍率 `12-16`，共 `1769` 張圖磚，約 `101 MB`。
+
+## 用 GPX 路線周邊轉圖磚
+
+這是正式登山使用建議方式。把 GPX 放到專案資料夾後執行：
+
+```powershell
+.\tools\convert_rudy_map_to_mbtiles.ps1 `
+  -Gpx ".\你的路線.gpx" `
+  -Output ".\tiles\route-z12-z16.mbtiles" `
+  -MinZoom 12 `
+  -MaxZoom 16 `
+  -GpxBuffer 0.03
+```
+
+`GpxBuffer 0.03` 大約是在路線外圍多留 3 公里左右，避免走偏時沒有底圖。
+
 ## 轉整個台灣
 
 確認小測試可用後，再轉整個魯地圖範圍：
