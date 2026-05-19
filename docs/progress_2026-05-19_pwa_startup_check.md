@@ -25,6 +25,7 @@
 | HTTPS production 部署 | 已建立 Netlify 站台，但 production deploy 被帳號額度擋下：`Skipped due to account credit usage exceeded` | 已改準備 GitHub Pages 發布設定 |
 | 手機實機安裝測試 | 仍需要 HTTPS 網址 | 部署後用 Android Chrome / iPhone Safari 加入主畫面 |
 | 視覺截圖驗證 | 本機 Chrome/Edge headless 在此環境會崩潰 | 可在一般桌面瀏覽器或部署後用手機檢查 |
+| GitHub Pages 推送 | 公開 GitHub repo 建立被安全審核擋下，因目前工作區含完整公司專案內容 | 建議改成只公開 `web_pwa/` 靜態 PWA；需使用者明確同意公開發布 |
 
 ## Netlify 狀態
 
@@ -41,5 +42,5 @@
 ## 下次接續建議
 
 1. 若繼續使用 Netlify：恢復帳號額度後，重送 `web_pwa/` production deploy 到 site id `31e83ced-12b2-4ed1-b45b-1319b09457a3`。
-2. 若要避開 Netlify 額度：使用 `.github/workflows/pages.yml` 發布 `web_pwa/` 到 GitHub Pages。
+2. 若要避開 Netlify 額度：建立只含 `web_pwa/` 的公開 GitHub Pages repo，避免整個公司專案公開。
 3. 部署成功後，用手機開啟 HTTPS 網址，確認「出發檢查」四項狀態會依序變更。
