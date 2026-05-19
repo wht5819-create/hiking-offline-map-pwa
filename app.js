@@ -402,17 +402,48 @@ function loadImage(url) {
 }
 
 function drawRoute(width, height) {
+  drawRouteStroke(width, height, 'rgba(255, 255, 255, 0.92)', 13);
+  drawRouteStroke(width, height, 'rgba(68, 36, 9, 0.92)', 9);
+  drawRouteStroke(width, height, '#ff7a1a', 5);
+  drawRouteEndpoints(width, height);
+}
+
+function drawRouteStroke(width, height, color, lineWidth) {
   ctx.beginPath();
-  state.routePoints.forEach((point, index) => {
+  for (const [index, point] of state.routePoints.entries()) {
     const projected = project(point, width, height);
     if (index === 0) ctx.moveTo(projected.x, projected.y);
     else ctx.lineTo(projected.x, projected.y);
-  });
-  ctx.strokeStyle = '#d9792b';
-  ctx.lineWidth = 4;
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.stroke();
+}
+
+function drawRouteEndpoints(width, height) {
+  const start = project(state.routePoints[0], width, height);
+  const end = project(state.routePoints[state.routePoints.length - 1], width, height);
+  drawRouteMarker(start, '#2f6f4f', '起');
+  drawRouteMarker(end, '#b3261e', '終');
+}
+
+function drawRouteMarker(point, color, label) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 11, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, point.x, point.y + 0.5);
+  ctx.restore();
 }
 
 function updateGpsDot(point) {
@@ -450,7 +481,7 @@ function project(point, width, height) {
 }
 
 function projectIntoBounds(point, width, height, bounds) {
-  const padding = 28;
+  const padding = 12;
   const usableWidth = Math.max(1, width - padding * 2);
   const usableHeight = Math.max(1, height - padding * 2);
   return {
