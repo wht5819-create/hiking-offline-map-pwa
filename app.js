@@ -64,8 +64,8 @@ elements.mapInput.addEventListener('change', async (event) => {
 
   try {
     setSafetyStatus('正在讀取魯地圖圖資', '');
-    elements.mapStatus.textContent = '正在讀取 MBTiles metadata，檔案越大需要越久。';
-    const mapPackage = await importMbtiles(file);
+    elements.mapStatus.textContent = '正在讀取圖資 metadata，檔案越大需要越久。';
+    const mapPackage = await importMapPackage(file);
     state.mapPackage?.db?.close();
     state.tileImageCache.clear();
     state.mapPackage = mapPackage;
@@ -449,10 +449,18 @@ function updateDepartureChecklist() {
   elements.readyCount.textContent = `${readyTotal}/${Object.keys(checks).length}`;
 }
 
-async function importMbtiles(file) {
-  if (!file.name.toLowerCase().endsWith('.mbtiles')) {
-    throw new Error('請選擇 .mbtiles 圖資');
+async function importMapPackage(file) {
+  const lowerName = file.name.toLowerCase();
+  if (lowerName.endsWith('.map')) {
+    return importMapsforgeMap(file);
   }
+  if (lowerName.endsWith('.mbtiles')) {
+    return importMbtiles(file);
+  }
+  throw new Error('請選擇魯地圖 .map 或 .mbtiles 圖資');
+}
+
+async function importMbtiles(file) {
   const SQL = await loadSqlJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const db = new SQL.Database(bytes);
@@ -470,6 +478,7 @@ async function importMbtiles(file) {
 
   return {
     db,
+    type: 'mbtiles',
     fileName: file.name,
     metadata,
     format,
@@ -481,6 +490,71 @@ async function importMbtiles(file) {
     scheme: (metadata.scheme || 'tms').toLowerCase(),
     bounds,
   };
+}
+
+async function importMapsforgeMap(file) {
+  const headerBytes = new Uint8Array(await file.slice(0, 96).arrayBuffer());
+  const header = parseMapsforgeHeader(headerBytes, file.size);
+  return {
+    db: null,
+    type: 'mapsforge',
+    fileName: file.name,
+    metadata: {
+      version: header.version.toString(),
+      date: header.mapDate ? new Date(header.mapDate).toISOString().slice(0, 10) : '',
+    },
+    format: 'mapsforge',
+    formatLabel: 'MAP',
+    isRaster: false,
+    minZoom: 0,
+    maxZoom: 0,
+    tileCount: 0,
+    scheme: 'mapsforge',
+    bounds: header.bounds,
+  };
+}
+
+function parseMapsforgeHeader(bytes, fileSize) {
+  const magic = decodeAscii(bytes.slice(0, 20));
+  if (magic !== 'mapsforge binary OSM') {
+    throw new Error('不是有效的 Mapsforge .map 圖資');
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const declaredHeaderSize = view.getInt32(20, false);
+  const version = view.getInt32(24, false);
+  const declaredFileSize = Number(view.getBigInt64(28, false));
+  const mapDate = Number(view.getBigInt64(36, false));
+  const minLat = view.getInt32(44, false) / 1000000;
+  const minLon = view.getInt32(48, false) / 1000000;
+  const maxLat = view.getInt32(52, false) / 1000000;
+  const maxLon = view.getInt32(56, false) / 1000000;
+
+  if (!Number.isFinite(declaredHeaderSize) || declaredHeaderSize <= 0) {
+    throw new Error('Mapsforge header 不完整');
+  }
+  if (declaredFileSize > 0 && Math.abs(declaredFileSize - fileSize) > 8) {
+    throw new Error('Mapsforge 檔案大小與 header 不一致');
+  }
+  if ([minLat, minLon, maxLat, maxLon].some((value) => !Number.isFinite(value))) {
+    throw new Error('Mapsforge 圖資範圍無法讀取');
+  }
+
+  return {
+    version,
+    mapDate,
+    bounds: {
+      minLat,
+      maxLat,
+      minLon,
+      maxLon,
+      latSpan: Math.max(maxLat - minLat, 0.0001),
+      lonSpan: Math.max(maxLon - minLon, 0.0001),
+    },
+  };
+}
+
+function decodeAscii(bytes) {
+  return [...bytes].map((byte) => String.fromCharCode(byte)).join('');
 }
 
 async function loadSqlJs() {
@@ -546,7 +620,9 @@ function updateMapPackageSummary() {
     node.textContent = values[index];
   });
   if (!item) {
-    elements.mapStatus.textContent = '請先匯入 `.mbtiles` 圖資，再匯入 GPX 航跡。';
+    elements.mapStatus.textContent = '請先匯入魯地圖 `.map` 或 `.mbtiles` 圖資，再匯入 GPX 航跡。';
+  } else if (item.type === 'mapsforge') {
+    elements.mapStatus.textContent = '魯地圖 Mapsforge .map 已匯入；目前先完成圖資辨識，PWA 尚未渲染 Mapsforge 向量圖層。';
   } else if (item.isRaster) {
     elements.mapStatus.textContent = 'Raster MBTiles 已載入，匯入 GPX 後會依航跡範圍載入底圖。';
   } else {
