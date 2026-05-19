@@ -4,7 +4,7 @@
 
 | 項目 | 狀態 | 說明 |
 |---|---|---|
-| PWA 出發檢查 | 已完成 | 首頁新增 HTTPS、離線快取、GPX、定位四項狀態 |
+| PWA 出發檢查 | 已完成 | 首頁新增 HTTPS、離線快取、圖資、GPX、定位五項狀態 |
 | 狀態即時更新 | 已完成 | GPX 匯入、GPS 取得位置、Service Worker 註冊後會更新檢查狀態 |
 | 快取版本 | 已更新 | `sw.js` 快取版本由 `hiking-pwa-v1` 更新為 `hiking-pwa-v2` |
 | 文件同步 | 已完成 | README、MVP 狀態、下一步文件已更新 |
@@ -28,6 +28,7 @@
 | GitHub Pages 推送 | 公開 GitHub repo 建立被安全審核擋下，因目前工作區含完整公司專案內容 | 建議改成只公開 `web_pwa/` 靜態 PWA；需使用者明確同意公開發布 |
 | 只公開 PWA repo | 已完成 | `wht5819-create/hiking-offline-map-pwa` 只含 PWA 靜態檔，未包含 Flutter `lib/`、`docs/`、公司專案根目錄 |
 | GitHub Pages HTTPS | 已完成 | `https://wht5819-create.github.io/hiking-offline-map-pwa/` 已回 200 |
+| 魯地圖圖資匯入 | 已完成基本版 | PWA 可先選 `.mbtiles`，讀取 metadata；raster MBTiles 會嘗試渲染底圖，vector PBF 先完成匯入辨識 |
 
 ## Netlify 狀態
 
@@ -55,4 +56,4 @@
 
 1. 若繼續使用 Netlify：恢復帳號額度後，重送 `web_pwa/` production deploy 到 site id `31e83ced-12b2-4ed1-b45b-1319b09457a3`。
 2. 用手機開啟 `https://wht5819-create.github.io/hiking-offline-map-pwa/`，確認可加入主畫面。
-3. 匯入 `sample/demo-route.gpx` 或自己的 GPX，確認「出發檢查」四項狀態會依序變更。
+3. 先匯入魯地圖 `.mbtiles`，再匯入 `sample/demo-route.gpx` 或自己的 GPX，確認「出發檢查」狀態會依序變更。

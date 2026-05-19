@@ -11,6 +11,7 @@
 - `sw.js`
 - `assets/icon-192.png`
 - `assets/icon-512.png`
+- 魯地圖 `.mbtiles` 匯入與 metadata 讀取
 - GPX 匯入、GPS 定位、偏離 50 公尺提醒
 
 ## 本機預覽
@@ -61,4 +62,4 @@ localhost 可以測 service worker；手機正式安裝仍建議使用 HTTPS。
 
 ## 限制
 
-純網頁版目前不直接讀 `.mbtiles`。如果要在 PWA 內完整支援 MBTiles，需要加入瀏覽器端 SQLite WASM、檔案持久化與大量圖磚快取策略；目前 PWA 先完成可安裝、GPX、GPS 與偏離警報。
+純網頁版已透過 `sql.js` 讀取 `.mbtiles`，raster 圖磚可嘗試在 Canvas 顯示。若圖資是 vector PBF，完整渲染仍需要 MapLibre / vector style pipeline；目前 PWA 先完成匯入辨識、GPX、GPS 與偏離警報。

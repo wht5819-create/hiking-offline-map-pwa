@@ -6,6 +6,8 @@
 
 - 可加入手機主畫面
 - Service Worker 快取 App shell，開過一次後可離線開啟
+- 可先匯入魯地圖 `.mbtiles` 圖資，讀取圖資 metadata
+- Raster MBTiles 可嘗試作為 Canvas 底圖；Vector PBF 目前先完成匯入辨識，尚未渲染
 - GPX 匯入與航點列表
 - GPS 定位
 - 每 10 秒或移動超過 10 公尺才更新偏離判斷
@@ -34,4 +36,4 @@ http://localhost:4173
 
 ## 與 Flutter 版差異
 
-純網頁版目前不讀取 `.mbtiles` SQLite 地圖包；瀏覽器端要完整支援 MBTiles 需要 WASM SQLite 與大量檔案快取策略。此版先完成可安裝、GPX、GPS 與偏離警報。
+純網頁版已可讀取 `.mbtiles` metadata，並可嘗試渲染 raster 圖磚。若魯地圖圖資是 vector PBF，PWA 目前只會辨識圖資，完整渲染仍需要 MapLibre / vector style pipeline。

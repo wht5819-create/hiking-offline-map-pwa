@@ -8,7 +8,8 @@ Flutter Clean Architecture 原型，先完成三個安全與體驗核心：
 - MBTiles：匯入、驗證、列出、刪除 app 管理的離線地圖包
 - 基本介面：地圖 / GPX / 地圖包三頁籤，GPX 匯入後會傳回地圖疊線
 - 手機 PWA：`web_pwa/` 提供可部署到 HTTPS、可加入手機主畫面的網頁版
-- PWA 出發檢查：首頁會顯示 HTTPS、離線快取、GPX、定位四項狀態
+- PWA 出發檢查：首頁會顯示 HTTPS、離線快取、圖資、GPX、定位五項狀態
+- PWA 魯地圖圖資：手機網頁版可先匯入 `.mbtiles`，讀取 metadata；raster MBTiles 會嘗試作為底圖顯示
 
 ## 地圖套件選型
 
