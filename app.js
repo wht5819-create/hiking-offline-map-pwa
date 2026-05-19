@@ -72,7 +72,7 @@ elements.mapInput.addEventListener('change', async (event) => {
     updateMapPackageSummary();
     updateDepartureChecklist();
     drawMap();
-    const renderNote = mapPackage.isRaster ? '可作為地圖底圖' : '已匯入，vector PBF 尚未在 PWA 渲染';
+    const renderNote = getMapRenderNote(mapPackage);
     setSafetyStatus(`魯地圖已匯入：${renderNote}`, 'ok');
   } catch (error) {
     state.mapPackage = null;
@@ -270,6 +270,8 @@ function drawMap() {
   drawTerrain(width, height);
   if (state.mapPackage?.isRaster) {
     drawRasterMap(width, height);
+  } else if (state.mapPackage?.type === 'mapsforge') {
+    drawMapsforgePlaceholder(width, height);
   }
 
   if (state.routePoints.length >= 2 && state.bounds) {
@@ -297,6 +299,38 @@ function drawTerrain(width, height) {
     ctx.lineWidth = i % 3 === 0 ? 1.4 : 0.8;
     ctx.stroke();
   }
+}
+
+function drawMapsforgePlaceholder(width, height) {
+  const mapPackage = state.mapPackage;
+  if (!mapPackage?.bounds) return;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(47, 111, 79, 0.06)';
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = 'rgba(47, 111, 79, 0.28)';
+  ctx.lineWidth = 1;
+  for (let x = 28; x < width; x += 54) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  for (let y = 28; y < height; y += 54) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(31, 86, 61, 0.72)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(18, 18, Math.max(1, width - 36), Math.max(1, height - 36));
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.86)';
+  ctx.fillRect(28, 28, Math.min(280, width - 56), 46);
+  ctx.fillStyle = '#1f563d';
+  ctx.font = '700 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillText('魯地圖範圍已載入', 42, 56);
+  ctx.restore();
 }
 
 function drawRoute(width, height) {
@@ -622,12 +656,20 @@ function updateMapPackageSummary() {
   if (!item) {
     elements.mapStatus.textContent = '請先匯入魯地圖 `.map` 或 `.mbtiles` 圖資，再匯入 GPX 航跡。';
   } else if (item.type === 'mapsforge') {
-    elements.mapStatus.textContent = '魯地圖 Mapsforge .map 已匯入；目前先完成圖資辨識，PWA 尚未渲染 Mapsforge 向量圖層。';
+    elements.mapStatus.textContent = '魯地圖 Mapsforge .map 已匯入；目前先完成圖資辨識與範圍定位，尚未渲染完整底圖。';
   } else if (item.isRaster) {
     elements.mapStatus.textContent = 'Raster MBTiles 已載入，匯入 GPX 後會依航跡範圍載入底圖。';
   } else {
     elements.mapStatus.textContent = 'Vector MBTiles 已載入；PWA 目前先辨識圖資，尚未渲染 PBF 向量圖磚。';
   }
+}
+
+function getMapRenderNote(mapPackage) {
+  if (mapPackage.type === 'mapsforge') {
+    return 'Mapsforge .map 已匯入，尚未渲染完整底圖';
+  }
+  if (mapPackage.isRaster) return '可作為地圖底圖';
+  return '已匯入，vector PBF 尚未在 PWA 渲染';
 }
 
 async function drawRasterMap(width, height) {
