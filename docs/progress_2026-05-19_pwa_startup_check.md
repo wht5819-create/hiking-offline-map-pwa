@@ -26,7 +26,8 @@
 | 手機實機安裝測試 | 仍需要 HTTPS 網址 | 部署後用 Android Chrome / iPhone Safari 加入主畫面 |
 | 視覺截圖驗證 | 本機 Chrome/Edge headless 在此環境會崩潰 | 可在一般桌面瀏覽器或部署後用手機檢查 |
 | GitHub Pages 推送 | 公開 GitHub repo 建立被安全審核擋下，因目前工作區含完整公司專案內容 | 建議改成只公開 `web_pwa/` 靜態 PWA；需使用者明確同意公開發布 |
-| 只公開 PWA repo | 已建立本機發布資料夾 `_github_pages_web_pwa/`，內容只含 PWA 靜態檔與 GitHub Pages workflow | GitHub API / CLI 連線逾時或中斷，尚未建立遠端 repo |
+| 只公開 PWA repo | 已完成 | `wht5819-create/hiking-offline-map-pwa` 只含 PWA 靜態檔，未包含 Flutter `lib/`、`docs/`、公司專案根目錄 |
+| GitHub Pages HTTPS | 已完成 | `https://wht5819-create.github.io/hiking-offline-map-pwa/` 已回 200 |
 
 ## Netlify 狀態
 
@@ -40,9 +41,18 @@
 | 阻塞原因 | Netlify 帳號 credit usage exceeded |
 | HTTPS 實測 | 尚不可用，連線無法建立 SSL |
 
+## GitHub Pages 狀態
+
+| 欄位 | 內容 |
+|---|---|
+| Repo | `https://github.com/wht5819-create/hiking-offline-map-pwa` |
+| Pages URL | `https://wht5819-create.github.io/hiking-offline-map-pwa/` |
+| 發布來源 | `main` branch / root |
+| 公開內容 | `_github_pages_web_pwa/`，等同 `web_pwa/` 靜態 PWA |
+| 已驗證 | `/`、`manifest.webmanifest`、`sw.js`、`sample/demo-route.gpx` 均回 200 |
+
 ## 下次接續建議
 
 1. 若繼續使用 Netlify：恢復帳號額度後，重送 `web_pwa/` production deploy 到 site id `31e83ced-12b2-4ed1-b45b-1319b09457a3`。
-2. 若要避開 Netlify 額度：已準備 `_github_pages_web_pwa/`，只含 `web_pwa/` 靜態 PWA。
-3. 若 GitHub API 仍不穩，先在 GitHub 網頁建立公開空 repo：`hiking-offline-map-pwa`，再從 `_github_pages_web_pwa/` 推送。
-4. 部署成功後，用手機開啟 HTTPS 網址，確認「出發檢查」四項狀態會依序變更。
+2. 用手機開啟 `https://wht5819-create.github.io/hiking-offline-map-pwa/`，確認可加入主畫面。
+3. 匯入 `sample/demo-route.gpx` 或自己的 GPX，確認「出發檢查」四項狀態會依序變更。
