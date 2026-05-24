@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hiking-pwa-v9';
+const CACHE_NAME = 'hiking-pwa-v14';
 const APP_SHELL = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const APP_SHELL = [
   './assets/icon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',
+  './sample/demo-route.gpx',
 ];
 
 self.addEventListener('install', (event) => {

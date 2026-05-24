@@ -1,5 +1,6 @@
 const state = {
   routePoints: [],
+  routeSegments: [],
   waypoints: [],
   bounds: null,
   watchId: null,
@@ -22,6 +23,8 @@ const elements = {
   waypointCount: document.querySelector('#waypointCount'),
   waypointList: document.querySelector('#waypointList'),
   routeName: document.querySelector('#routeName'),
+  sampleMapButton: document.querySelector('#sampleMapButton'),
+  sampleRouteButton: document.querySelector('#sampleRouteButton'),
   trackingButton: document.querySelector('#trackingButton'),
   clearButton: document.querySelector('#clearButton'),
   safetyStatus: document.querySelector('#safetyStatus'),
@@ -98,8 +101,9 @@ elements.gpxInput.addEventListener('change', async (event) => {
     const xmlText = await file.text();
     const parsed = parseGpx(xmlText);
     state.routePoints = parsed.routePoints;
+    state.routeSegments = parsed.routeSegments;
     state.waypoints = parsed.waypoints;
-    state.bounds = calculateBounds(parsed.routePoints);
+    state.bounds = calculateBounds([...parsed.routePoints, ...parsed.waypoints]);
     elements.routeName.textContent = file.name;
     updateRouteSummary();
     updateDepartureChecklist();
@@ -107,6 +111,52 @@ elements.gpxInput.addEventListener('change', async (event) => {
     setSafetyStatus('GPX 已載入，可啟動定位', 'ok');
   } catch (error) {
     setSafetyStatus(`GPX 匯入失敗：${error.message}`, 'danger');
+  }
+});
+
+elements.sampleMapButton.addEventListener('click', async () => {
+  try {
+    setSafetyStatus('正在載入範例魯地圖...', '');
+    elements.mapStatus.textContent = '正在讀取範例 raster MBTiles，第一次載入可能需要幾秒鐘。';
+    const response = await fetch('./sample/rudy-route-z12-z16.mbtiles');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    const file = new File([blob], 'rudy-route-z12-z16.mbtiles', { type: 'application/octet-stream' });
+    const mapPackage = await importMapPackage(file);
+    state.mapPackage?.db?.close();
+    state.tileImageCache.clear();
+    state.mapPackage = mapPackage;
+    saveStoredMapPackage(mapPackage);
+    updateMapPackageSummary();
+    updateDepartureChecklist();
+    drawMap();
+    setSafetyStatus('範例魯地圖已載入；可再點範例路線查看橘色航跡', 'ok');
+  } catch (error) {
+    setSafetyStatus(`範例魯地圖載入失敗：${error.message}`, 'danger');
+  }
+});
+
+elements.sampleRouteButton.addEventListener('click', async () => {
+  try {
+    setSafetyStatus('正在載入範例路線...', '');
+    const response = await fetch('./sample/demo-route.gpx', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const xmlText = await response.text();
+    const parsed = parseGpx(xmlText);
+    state.routePoints = parsed.routePoints;
+    state.routeSegments = parsed.routeSegments;
+    state.waypoints = parsed.waypoints;
+    state.bounds = calculateBounds([...parsed.routePoints, ...parsed.waypoints]);
+    state.lastAcceptedPosition = null;
+    elements.gpsDot.hidden = true;
+    elements.routeName.textContent = '範例路線';
+    elements.deviationDistance.textContent = '--';
+    updateRouteSummary();
+    updateDepartureChecklist();
+    drawMap();
+    setSafetyStatus(`GPX 已載入：${state.routePoints.length} 個軌跡點、${state.waypoints.length} 個航點`, 'ok');
+  } catch (error) {
+    setSafetyStatus(`範例路線載入失敗：${error.message}`, 'danger');
   }
 });
 
@@ -121,6 +171,7 @@ elements.trackingButton.addEventListener('click', () => {
 elements.clearButton.addEventListener('click', () => {
   stopTracking();
   state.routePoints = [];
+  state.routeSegments = [];
   state.waypoints = [];
   state.bounds = null;
   state.lastAcceptedPosition = null;
@@ -145,11 +196,12 @@ function parseGpx(xmlText) {
     throw new Error('XML 格式毀損');
   }
 
-  const routePoints = [...documentXml.querySelectorAll('trkpt')].map((node) => ({
-    lat: readNumberAttribute(node, 'lat'),
-    lon: readNumberAttribute(node, 'lon'),
-    ele: readOptionalNumber(node.querySelector('ele')?.textContent),
-  }));
+  const routeSegments = [...documentXml.querySelectorAll('trkseg')]
+    .map((segment) => [...segment.querySelectorAll('trkpt')].map(readGpxPoint))
+    .filter((segment) => segment.length > 0);
+  const routePoints = routeSegments.length > 0
+    ? routeSegments.flat()
+    : [...documentXml.querySelectorAll('trkpt')].map(readGpxPoint);
   const waypoints = [...documentXml.querySelectorAll('wpt')].map((node) => ({
     lat: readNumberAttribute(node, 'lat'),
     lon: readNumberAttribute(node, 'lon'),
@@ -161,7 +213,15 @@ function parseGpx(xmlText) {
     throw new Error('檔案內沒有 trkpt 或 wpt');
   }
 
-  return { routePoints, waypoints };
+  return { routePoints, routeSegments: routeSegments.length > 0 ? routeSegments : [routePoints], waypoints };
+}
+
+function readGpxPoint(node) {
+  return {
+    lat: readNumberAttribute(node, 'lat'),
+    lon: readNumberAttribute(node, 'lon'),
+    ele: readOptionalNumber(node.querySelector('ele')?.textContent),
+  };
 }
 
 function readNumberAttribute(node, name) {
@@ -179,8 +239,8 @@ function readOptionalNumber(value) {
 }
 
 function startTracking() {
-  if (state.routePoints.length < 2) {
-    setSafetyStatus('請先匯入 GPX 航跡', 'danger');
+  if (!isGpsAllowedHere()) {
+    setSafetyStatus('定位需要 HTTPS；手機用區網 http 網址會被瀏覽器擋住', 'danger');
     return;
   }
   if (!navigator.geolocation) {
@@ -190,7 +250,7 @@ function startTracking() {
 
   state.watchId = navigator.geolocation.watchPosition(
     handlePosition,
-    (error) => setSafetyStatus(`定位失敗：${error.message}`, 'danger'),
+    (error) => setSafetyStatus(`定位失敗：${formatGeolocationError(error)}`, 'danger'),
     {
       enableHighAccuracy: true,
       maximumAge: 8000,
@@ -198,7 +258,7 @@ function startTracking() {
     },
   );
   elements.trackingButton.textContent = '停止定位';
-  setSafetyStatus('定位啟動中', 'ok');
+  setSafetyStatus(state.routePoints.length >= 2 ? '定位啟動中，偏離警報待命' : '定位啟動中，尚未載入 GPX', 'ok');
 }
 
 function stopTracking() {
@@ -228,6 +288,16 @@ function handlePosition(position) {
 
   state.lastAcceptedAt = now;
   state.lastAcceptedPosition = current;
+  if (state.routePoints.length < 2) {
+    state.bounds = boundsAroundPoint(current);
+    elements.deviationDistance.textContent = '--';
+    updateGpsDot(current);
+    updateDepartureChecklist();
+    drawMap();
+    setSafetyStatus('已取得目前位置；匯入 GPX 後可啟用偏離警報', 'ok');
+    return;
+  }
+
   const distance = shortestDistanceToRouteMeters(current, state.routePoints);
   elements.deviationDistance.textContent = `${Math.round(distance)}m`;
   updateGpsDot(current);
@@ -239,6 +309,17 @@ function handlePosition(position) {
   } else {
     setSafetyStatus(`航線內 ${Math.round(distance)} 公尺`, 'ok');
   }
+}
+
+function isGpsAllowedHere() {
+  return window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
+function formatGeolocationError(error) {
+  if (error.code === error.PERMISSION_DENIED) return '定位權限被拒絕，請到瀏覽器網站設定允許位置';
+  if (error.code === error.POSITION_UNAVAILABLE) return '目前位置不可用，請確認手機 GPS 已開啟';
+  if (error.code === error.TIMEOUT) return '定位逾時，請到戶外或窗邊再試一次';
+  return error.message || '未知錯誤';
 }
 
 function updateRouteSummary() {
@@ -278,8 +359,6 @@ function drawMap() {
   drawOnlineTopoMap(width, height);
   if (state.mapPackage?.isRaster) {
     drawRasterMap(width, height);
-  } else if (state.mapPackage?.type === 'mapsforge') {
-    drawMapsforgePlaceholder(width, height);
   }
 
   if (state.routePoints.length >= 2 && state.bounds) {
@@ -292,21 +371,65 @@ function drawMap() {
 
 function drawTerrain(width, height) {
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#f8f6ef';
+  ctx.fillStyle = '#b7c979';
   ctx.fillRect(0, 0, width, height);
 
-  for (let i = 0; i < 18; i += 1) {
+  ctx.save();
+  ctx.globalAlpha = 0.24;
+  ctx.fillStyle = '#86aa56';
+  for (let i = 0; i < 7; i += 1) {
     ctx.beginPath();
-    const y = (height / 18) * i + 8;
+    const cx = (width / 6) * i + ((i % 2) * 45);
+    const cy = height * (0.16 + (i % 5) * 0.17);
+    ctx.ellipse(cx, cy, width * 0.18, height * 0.13, i * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(63, 86, 59, 0.28)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 34; i += 1) {
+    ctx.beginPath();
+    const y = (height / 32) * i + 4;
     for (let x = -20; x <= width + 20; x += 20) {
-      const wave = Math.sin((x + i * 27) / 54) * 13 + Math.cos(x / 91) * 7;
+      const wave = Math.sin((x + i * 31) / 62) * 11 + Math.cos((x + i * 17) / 96) * 6;
       if (x === -20) ctx.moveTo(x, y + wave);
       else ctx.lineTo(x, y + wave);
     }
-    ctx.strokeStyle = i % 3 === 0 ? 'rgba(155, 139, 100, 0.55)' : 'rgba(155, 139, 100, 0.28)';
-    ctx.lineWidth = i % 3 === 0 ? 1.4 : 0.8;
+    ctx.strokeStyle = i % 5 === 0 ? 'rgba(52, 73, 51, 0.42)' : 'rgba(52, 73, 51, 0.20)';
+    ctx.lineWidth = i % 5 === 0 ? 1.8 : 0.8;
     ctx.stroke();
   }
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(46, 146, 184, 0.74)';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(width * 0.72, -20);
+  ctx.bezierCurveTo(width * 0.66, height * 0.2, width * 0.78, height * 0.38, width * 0.7, height * 0.58);
+  ctx.bezierCurveTo(width * 0.62, height * 0.76, width * 0.78, height * 0.88, width * 0.74, height + 20);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(-10, height * 0.55);
+  ctx.bezierCurveTo(width * 0.18, height * 0.47, width * 0.33, height * 0.64, width * 0.52, height * 0.47);
+  ctx.bezierCurveTo(width * 0.67, height * 0.34, width * 0.82, height * 0.46, width + 20, height * 0.32);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(132, 77, 45, 0.7)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8, 7]);
+  ctx.beginPath();
+  ctx.moveTo(width * 0.1, height * 0.78);
+  ctx.bezierCurveTo(width * 0.24, height * 0.68, width * 0.35, height * 0.82, width * 0.5, height * 0.7);
+  ctx.bezierCurveTo(width * 0.6, height * 0.62, width * 0.72, height * 0.72, width * 0.92, height * 0.58);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawMapsforgePlaceholder(width, height) {
@@ -364,14 +487,13 @@ async function drawOnlineTopoMap(width, height) {
     ctx.drawImage(tile.image, start.x, start.y, end.x - start.x, end.y - start.y);
   }
 
-  if (state.mapPackage?.type === 'mapsforge') drawMapsforgePlaceholder(width, height);
   if (state.routePoints.length >= 2 && state.bounds) drawRoute(width, height);
   if (state.lastAcceptedPosition) updateGpsDot(state.lastAcceptedPosition);
 }
 
 function chooseOnlineZoom(bounds, width, height) {
   let selected = 8;
-  const maxZoom = state.routePoints.length >= 2 ? 15 : 10;
+  const maxZoom = state.routePoints.length >= 2 ? 16 : 10;
   for (let zoom = maxZoom; zoom >= 6; zoom -= 1) {
     const range = getTileRange(bounds, zoom);
     if (!range) continue;
@@ -408,33 +530,40 @@ function loadImage(url) {
 }
 
 function drawRoute(width, height) {
-  const screenPoints = buildRouteScreenPoints(width, height);
+  const screenPoints = buildRouteScreenPoints(width, height, state.routePoints);
   if (screenPoints.length < 2) return;
-  drawRouteStroke(screenPoints, 'rgba(255, 255, 255, 0.86)', 11);
-  drawRouteStroke(screenPoints, 'rgba(49, 58, 47, 0.64)', 7);
-  drawRouteStroke(screenPoints, '#ff6b1a', 4);
+  drawRouteStroke(screenPoints, 'rgba(255, 255, 255, 0.94)', 14);
+  drawRouteStroke(screenPoints, 'rgba(63, 51, 45, 0.75)', 9);
+  for (const [index, segment] of state.routeSegments.entries()) {
+    const segmentPoints = buildRouteScreenPoints(width, height, segment);
+    const color = index % 2 === 0 ? '#ff8b3d' : '#ffb15f';
+    drawRouteStroke(segmentPoints, color, 6);
+  }
   drawDirectionArrows(screenPoints);
-  drawDistanceBadges(screenPoints);
+  drawRouteCallouts(width, height);
+  drawWaypointPins(width, height);
   drawRouteEndpoints(screenPoints);
 }
 
-function buildRouteScreenPoints(width, height) {
+function buildRouteScreenPoints(width, height, routePoints) {
   const minGap = 5;
   const points = [];
-  for (const point of state.routePoints) {
+  for (const point of routePoints) {
     const projected = project(point, width, height);
     const previous = points[points.length - 1];
     if (!previous || Math.hypot(projected.x - previous.x, projected.y - previous.y) >= minGap) {
-      points.push(projected);
+      points.push({ ...point, ...projected });
     }
   }
-  const last = project(state.routePoints[state.routePoints.length - 1], width, height);
+  const lastRoutePoint = routePoints[routePoints.length - 1];
+  const last = { ...lastRoutePoint, ...project(lastRoutePoint, width, height) };
   const previous = points[points.length - 1];
   if (!previous || previous.x !== last.x || previous.y !== last.y) points.push(last);
   return points;
 }
 
 function drawRouteStroke(points, color, lineWidth) {
+  if (points.length < 2) return;
   ctx.beginPath();
   for (const [index, point] of points.entries()) {
     if (index === 0) ctx.moveTo(point.x, point.y);
@@ -477,25 +606,103 @@ function drawArrow(point, angle) {
   ctx.restore();
 }
 
-function drawDistanceBadges(points) {
+function drawRouteCallouts(width, height) {
   if (state.routePoints.length < 2) return;
-  const totalMeters = calculateRouteLengthMeters(state.routePoints);
-  const midpoint = points[Math.floor(points.length / 2)];
-  const label = totalMeters >= 1000 ? `${(totalMeters / 1000).toFixed(1)} km` : `${Math.round(totalMeters)} m`;
+  const samples = buildRouteCalloutSamples(state.routePoints);
+  for (const sample of samples) {
+    const point = project(sample, width, height);
+    const kmLabel = sample.distanceMeters >= 1000
+      ? `${(sample.distanceMeters / 1000).toFixed(1)} km`
+      : `${Math.round(sample.distanceMeters)} m`;
+    const eleLabel = Number.isFinite(sample.ele) ? `H ${Math.round(sample.ele)}m` : '';
+    drawPinLabel(point, '#e53935', kmLabel, eleLabel);
+  }
+}
+
+function buildRouteCalloutSamples(points) {
+  const totalMeters = calculateRouteLengthMeters(points);
+  if (!Number.isFinite(totalMeters) || totalMeters <= 0) return [];
+  const targets = [];
+  const interval = totalMeters > 8000 ? 2000 : totalMeters > 3000 ? 1000 : Math.max(500, totalMeters / 4);
+  for (let distance = interval; distance < totalMeters; distance += interval) targets.push(distance);
+  if (targets.length === 0) targets.push(totalMeters / 2);
+
+  const samples = [];
+  let travelled = 0;
+  let nextTargetIndex = 0;
+  for (let index = 1; index < points.length && nextTargetIndex < targets.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const segmentDistance = haversineMeters(previous, current);
+    while (nextTargetIndex < targets.length && travelled + segmentDistance >= targets[nextTargetIndex]) {
+      const ratio = segmentDistance === 0 ? 0 : (targets[nextTargetIndex] - travelled) / segmentDistance;
+      samples.push({
+        lat: previous.lat + (current.lat - previous.lat) * ratio,
+        lon: previous.lon + (current.lon - previous.lon) * ratio,
+        ele: Number.isFinite(current.ele) ? current.ele : previous.ele,
+        distanceMeters: targets[nextTargetIndex],
+      });
+      nextTargetIndex += 1;
+    }
+    travelled += segmentDistance;
+  }
+  return samples.slice(0, 10);
+}
+
+function drawWaypointPins(width, height) {
+  for (const waypoint of state.waypoints.slice(0, 30)) {
+    const point = project(waypoint, width, height);
+    drawPinLabel(point, '#2f66c5', waypoint.name, Number.isFinite(waypoint.ele) ? `${Math.round(waypoint.ele)}m` : '');
+  }
+}
+
+function drawPinLabel(point, color, title, subtitle = '') {
   ctx.save();
   ctx.font = '700 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  const width = ctx.measureText(label).width + 18;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-  ctx.strokeStyle = 'rgba(49, 58, 47, 0.3)';
-  ctx.lineWidth = 1;
-  roundedRectPath(midpoint.x - width / 2, midpoint.y - 28, width, 24, 8);
+  const titleWidth = ctx.measureText(title).width;
+  ctx.font = '600 10px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  const subtitleWidth = subtitle ? ctx.measureText(subtitle).width : 0;
+  const labelWidth = Math.min(138, Math.max(42, titleWidth, subtitleWidth) + 14);
+  const labelHeight = subtitle ? 32 : 22;
+  const x = clamp(point.x - labelWidth / 2, 6, Math.max(6, elements.canvas.getBoundingClientRect().width - labelWidth - 6));
+  const y = Math.max(6, point.y - labelHeight - 18);
+
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2.5;
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#1f563d';
+  ctx.beginPath();
+  ctx.moveTo(point.x, point.y + 6);
+  ctx.lineTo(point.x - 5, point.y + 16);
+  ctx.lineTo(point.x + 5, point.y + 16);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.fillStyle = color;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.96)';
+  ctx.lineWidth = 3;
+  roundedRectPath(x, y, labelWidth, labelHeight, 6);
+  ctx.stroke();
+  ctx.fill();
+  ctx.fillStyle = '#fff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, midpoint.x, midpoint.y - 16);
+  ctx.font = '700 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillText(fitLabel(title, 12), x + labelWidth / 2, y + (subtitle ? 10 : 11));
+  if (subtitle) {
+    ctx.font = '600 9px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.fillText(subtitle, x + labelWidth / 2, y + 23);
+  }
   ctx.restore();
+}
+
+function fitLabel(text, maxLength) {
+  const value = String(text || '');
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
 }
 
 function roundedRectPath(x, y, width, height, radius) {
@@ -576,6 +783,18 @@ function calculateBounds(points) {
   };
 }
 
+function boundsAroundPoint(point) {
+  const span = 0.01;
+  return {
+    minLat: point.lat - span / 2,
+    maxLat: point.lat + span / 2,
+    minLon: point.lon - span / 2,
+    maxLon: point.lon + span / 2,
+    latSpan: span,
+    lonSpan: span,
+  };
+}
+
 function project(point, width, height) {
   const bounds = getViewBounds();
   if (!bounds) return { x: width / 2, y: height / 2 };
@@ -593,6 +812,10 @@ function projectIntoBounds(point, width, height, bounds) {
 }
 
 function getViewBounds() {
+  if (state.routePoints.length >= 2 && state.lastAcceptedPosition) {
+    return calculateBounds([...state.routePoints, ...state.waypoints, state.lastAcceptedPosition]);
+  }
+  if (state.lastAcceptedPosition && state.routePoints.length < 2) return boundsAroundPoint(state.lastAcceptedPosition);
   return state.bounds || state.mapPackage?.bounds || null;
 }
 
@@ -681,7 +904,7 @@ function setSafetyStatus(message, mode) {
 }
 
 function updateDepartureChecklist() {
-  const secureReady = window.isSecureContext || window.location.hostname === 'localhost';
+  const secureReady = isGpsAllowedHere();
   const installedReady =
     window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   const checks = {
@@ -694,8 +917,8 @@ function updateDepartureChecklist() {
       text: state.offlineReady ? '已快取' : '等待快取',
     },
     map: {
-      ready: Boolean(state.mapPackage),
-      text: state.mapPackage ? state.mapPackage.formatLabel : '未匯入',
+      ready: Boolean(state.mapPackage) || navigator.onLine,
+      text: state.mapPackage ? state.mapPackage.formatLabel : navigator.onLine ? '線上地形' : '未匯入',
     },
     gpx: {
       ready: state.routePoints.length >= 2,
@@ -899,11 +1122,11 @@ function updateMapPackageSummary() {
     node.textContent = values[index];
   });
   if (!item) {
-    elements.mapStatus.textContent = '請先匯入魯地圖 `.map` 或 `.mbtiles` 圖資，再匯入 GPX 航跡。';
+    elements.mapStatus.textContent = '可直接匯入 GPX 使用線上地形底圖；需要離線底圖時再匯入 `.mbtiles`。';
   } else if (item.type === 'mapsforge') {
-    elements.mapStatus.textContent = '魯地圖 Mapsforge .map 已匯入；目前用線上地形圖作為可見底圖，完整魯地圖渲染尚未完成。';
+    elements.mapStatus.textContent = '魯地圖 `.map` 目前只讀取範圍，PWA 尚不能完整渲染 Mapsforge 圖層；若要完整區域底圖，請改匯入 raster `.mbtiles`。';
   } else if (item.isRaster) {
-    elements.mapStatus.textContent = 'Raster MBTiles 已載入，匯入 GPX 後會依航跡範圍載入底圖。';
+    elements.mapStatus.textContent = 'Raster MBTiles 已載入，會依目前位置或 GPX 範圍顯示可用圖磚。';
   } else {
     elements.mapStatus.textContent = 'Vector MBTiles 已載入；PWA 目前先辨識圖資，尚未渲染 PBF 向量圖磚。';
   }
@@ -911,7 +1134,7 @@ function updateMapPackageSummary() {
 
 function getMapRenderNote(mapPackage) {
   if (mapPackage.type === 'mapsforge') {
-    return 'Mapsforge .map 已匯入，已啟用線上地形底圖';
+    return '已讀取範圍，完整 `.map` 圖層尚未渲染';
   }
   if (mapPackage.isRaster) return '可作為地圖底圖';
   return '已匯入，vector PBF 尚未在 PWA 渲染';
