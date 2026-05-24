@@ -7,6 +7,7 @@ npm-cache-deploy/
 output/
 tiles/
 tools/mapsforge-src/
+tools/runtime/
 tools/*.jar
 tools/rudy-map-tiler/target/
 tools/rudy-map-tiler/dependency-reduced-pom.xml
@@ -17,3 +18,4 @@ _github_pages_web_pwa/
 deploy-*.zip
 web_pwa/server.log
 web_pwa/server.err.log
+web_pwa/server-bg*.log

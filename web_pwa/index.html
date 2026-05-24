@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#2f6f4f" />
+    <meta name="theme-color" content="#7fa24d" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="登山離線地圖" />
@@ -11,43 +11,78 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=22" />
   </head>
   <body>
     <main class="app-shell">
-      <header class="top-bar">
-        <div>
-          <p class="eyebrow">Hiking PWA</p>
-          <h1>登山離線地圖</h1>
-        </div>
-        <button class="icon-button" id="installButton" type="button" title="安裝到手機桌面" hidden>
-          <span aria-hidden="true">＋</span>
-        </button>
-      </header>
-
-      <section class="map-stage" aria-label="航跡與定位">
+      <section class="map-stage" aria-label="魯地圖">
         <canvas id="mapCanvas" width="900" height="900"></canvas>
         <div class="gps-dot" id="gpsDot" hidden></div>
-        <div class="status-pill" id="safetyStatus">尚未匯入 GPX</div>
-        <div class="map-attribution">Map data © OpenStreetMap contributors, SRTM | Style © OpenTopoMap</div>
+        <div class="status-pill" id="safetyStatus">按示範載入地圖</div>
+
+        <button class="icon-button" id="installButton" type="button" title="安裝" hidden>
+          <span aria-hidden="true">↓</span>
+        </button>
+
+        <button id="demoButton" class="play-button" type="button" aria-label="載入示範" title="載入示範">
+          <span aria-hidden="true">▶</span>
+        </button>
+
+        <button id="trackingButton" class="locate-button" type="button" aria-label="定位">
+          <span aria-hidden="true">⌖</span>
+        </button>
+
+        <details class="tool-drawer">
+          <summary aria-label="圖層與工具">☰</summary>
+          <section class="controls" aria-label="圖層與地圖操作">
+            <h2>圖層</h2>
+            <label class="layer-toggle">
+              <input id="routeLayerToggle" type="checkbox" checked />
+              <span>GPX 路線</span>
+            </label>
+            <label class="layer-toggle">
+              <input id="waypointLayerToggle" type="checkbox" checked />
+              <span>航點</span>
+            </label>
+            <label class="layer-toggle">
+              <input id="contrastLayerToggle" type="checkbox" checked />
+              <span>清晰底圖</span>
+            </label>
+            <label class="layer-toggle disabled">
+              <input type="checkbox" checked disabled />
+              <span>10m 等高線</span>
+            </label>
+            <label class="layer-toggle disabled">
+              <input type="checkbox" disabled />
+              <span>通訊點 / 困難路線</span>
+            </label>
+            <div class="tool-divider"></div>
+            <h2>地圖分區</h2>
+            <div class="region-list" id="regionList">
+              <button type="button" data-region="demo">示範區</button>
+              <button type="button" data-region="north">北部</button>
+              <button type="button" data-region="central">中部</button>
+              <button type="button" data-region="south">南部</button>
+              <button type="button" data-region="east">東部</button>
+              <button type="button" data-region="all">全台</button>
+            </div>
+            <div class="tool-divider"></div>
+            <label class="file-button">
+              <input id="mapInput" type="file" accept=".mbtiles,.map,.sqlite,.db,application/octet-stream,application/vnd.sqlite3" />
+              匯入圖
+            </label>
+            <label class="file-button">
+              <input id="gpxInput" type="file" accept=".gpx,application/gpx+xml,text/xml" />
+              匯入 GPX
+            </label>
+            <button id="clearButton" type="button">清除</button>
+          </section>
+        </details>
       </section>
 
-      <section class="controls" aria-label="操作">
-        <label class="file-button">
-          <input id="mapInput" type="file" accept=".mbtiles,.map,.sqlite,.db,application/octet-stream,application/vnd.sqlite3" />
-          匯入魯地圖
-        </label>
-        <label class="file-button">
-          <input id="gpxInput" type="file" accept=".gpx,application/gpx+xml,text/xml" />
-          匯入 GPX
-        </label>
-        <button id="trackingButton" type="button">啟動定位</button>
-        <button id="clearButton" type="button">清除</button>
-      </section>
-
-      <section class="metrics" aria-label="路線狀態">
+      <section class="metrics" aria-label="狀態">
         <div>
-          <span>軌跡點</span>
+          <span>軌跡</span>
           <strong id="trackCount">0</strong>
         </div>
         <div>
@@ -55,22 +90,22 @@
           <strong id="waypointCount">0</strong>
         </div>
         <div>
-          <span>偏離距離</span>
+          <span>偏離</span>
           <strong id="deviationDistance">--</strong>
         </div>
       </section>
 
-      <section class="panel map-package" aria-label="魯地圖圖資">
+      <section class="panel map-package" aria-label="圖資狀態">
         <div class="panel-heading">
-          <h2>魯地圖圖資</h2>
+          <h2>圖資</h2>
           <span id="mapName">尚未匯入</span>
         </div>
         <dl class="map-meta" id="mapMeta">
           <div><dt>格式</dt><dd>--</dd></div>
-          <div><dt>層級</dt><dd>--</dd></div>
+          <div><dt>縮放</dt><dd>--</dd></div>
           <div><dt>圖磚</dt><dd>--</dd></div>
         </dl>
-        <p id="mapStatus" class="helper-text">請先匯入魯地圖 `.map` 或 `.mbtiles` 圖資，再匯入 GPX 航跡。</p>
+        <p id="mapStatus" class="helper-text">可匯入 raster MBTiles 顯示魯地圖底圖。</p>
       </section>
 
       <section class="panel departure-check" aria-label="出發檢查">
@@ -79,28 +114,23 @@
           <span id="readyCount">0/5</span>
         </div>
         <ul class="check-list">
-          <li data-check="secure"><span></span><strong>HTTPS</strong><em>部署後啟用</em></li>
-          <li data-check="offline"><span></span><strong>離線快取</strong><em>等待快取</em></li>
+          <li data-check="secure"><span></span><strong>HTTPS</strong><em>確認中</em></li>
+          <li data-check="offline"><span></span><strong>離線</strong><em>等待</em></li>
           <li data-check="map"><span></span><strong>圖資</strong><em>未匯入</em></li>
           <li data-check="gpx"><span></span><strong>GPX</strong><em>未載入</em></li>
           <li data-check="gps"><span></span><strong>定位</strong><em>未啟動</em></li>
         </ul>
       </section>
 
-      <section class="panel" aria-label="航點">
+      <section class="panel waypoint-panel" aria-label="航點">
         <div class="panel-heading">
           <h2>航點</h2>
-          <span id="routeName">未載入路線</span>
+          <span id="routeName">尚未載入路線</span>
         </div>
         <ul id="waypointList" class="waypoint-list"></ul>
       </section>
-
-      <section class="panel install-note">
-        <h2>手機安裝</h2>
-        <p>Android Chrome 可用右上選單「加入主畫面」。iPhone Safari 請按分享，再選「加入主畫面」。正式使用需部署在 HTTPS 網址。</p>
-      </section>
     </main>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
-    <script src="app.js" type="module"></script>
+    <script src="vendor/sqljs/sql-wasm.js?v=22"></script>
+    <script src="app.js?v=22" type="module"></script>
   </body>
 </html>

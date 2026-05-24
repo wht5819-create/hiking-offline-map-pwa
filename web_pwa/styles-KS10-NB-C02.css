@@ -1,0 +1,361 @@
+:root {
+  color-scheme: light;
+  --bg: #eef1ec;
+  --surface: #ffffff;
+  --ink: #18231c;
+  --muted: #5c665f;
+  --line: #d8ded7;
+  --green: #2f6f4f;
+  --green-strong: #1f563d;
+  --amber: #d9792b;
+  --red: #b3261e;
+  --red-bg: #f9dedc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: max(10px, env(safe-area-inset-top)) 10px max(18px, env(safe-area-inset-bottom));
+  display: grid;
+  gap: 10px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.32rem;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 1rem;
+}
+
+.icon-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 0;
+  background: var(--green);
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.map-stage {
+  position: relative;
+  min-height: 64vh;
+  height: min(78vh, 760px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(47, 111, 79, 0.14), rgba(217, 121, 43, 0.08)),
+    #f8f6ef;
+}
+
+#mapCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  min-height: 64vh;
+}
+
+.gps-dot {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1976d2;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.2);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.status-pill {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 12px;
+  bottom: auto;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--line);
+  font-weight: 700;
+}
+
+.status-pill.danger {
+  background: var(--red-bg);
+  border-color: rgba(179, 38, 30, 0.35);
+  color: var(--red);
+}
+
+.status-pill.ok {
+  color: var(--green-strong);
+}
+
+.map-attribution {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  max-width: calc(100% - 16px);
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr 0.8fr;
+  gap: 8px;
+}
+
+.controls button,
+.file-button {
+  min-height: 46px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--green);
+  background: var(--surface);
+  color: var(--green-strong);
+  font-weight: 700;
+}
+
+#trackingButton {
+  background: var(--green);
+  color: #fff;
+}
+
+.file-button input {
+  display: none;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.metrics div,
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.metrics div {
+  padding: 12px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.metrics span,
+.panel-heading span,
+.install-note p {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.metrics strong {
+  font-size: 1.1rem;
+}
+
+.map-meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.map-meta div {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.map-meta dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.map-meta dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.helper-text {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.panel {
+  padding: 14px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.waypoint-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.waypoint-list li {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.waypoint-list strong {
+  display: block;
+}
+
+.waypoint-list span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.check-list li {
+  min-height: 76px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.check-list span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.check-list strong,
+.check-list em {
+  display: block;
+  font-style: normal;
+}
+
+.check-list strong {
+  font-size: 0.92rem;
+}
+
+.check-list em {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.check-list li.ready {
+  border-color: rgba(47, 111, 79, 0.4);
+  background: rgba(47, 111, 79, 0.06);
+}
+
+.check-list li.ready span {
+  background: var(--green);
+}
+
+.install-note {
+  line-height: 1.5;
+}
+
+@media (max-width: 420px) {
+  .app-shell {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .map-stage,
+  #mapCanvas {
+    min-height: 70vh;
+  }
+
+  .map-stage {
+    height: 72vh;
+  }
+
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .map-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .check-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

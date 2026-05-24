@@ -10,6 +10,8 @@
 | P1 | Style JSON 管理 | 已完成基本版：內建 template，也可選擇自訂 JSON | 待用實際 Rudy Map style 修正 layer id |
 | P1 | 偏離航線警報 UI | 已完成基本版：地圖頁可啟動 GPS 追蹤，超過 50 公尺提示 | 待實機驗證背景定位與省電表現 |
 | P1 | 首次啟動導引 | PWA 已加入「出發檢查」，可即時顯示 HTTPS、離線快取、GPX、定位狀態 | 降低非技術使用者設定門檻 |
+| P1 | Demo 模式 | 已完成基本版：開 `/?demo=1` 或 `/#demo` 自動載入範例魯地圖與 GPX | 降低展示與手機首次試用摩擦 |
+| P1 | SQL.js 本機化 | 已完成：`sql-wasm.js` 與 `sql-wasm.wasm` 已納入 PWA 快取 | 減少 CDN 依賴，讓離線 MBTiles 讀取更可靠 |
 | P2 | 讀取 MBTiles metadata | 顯示地圖範圍、版本、縮放層級 | 避免使用者載入錯誤地圖 |
 | P2 | 加入軌跡記錄與匯出 GPX | 支援登山後回顧與分享 | 提升 App 黏著度 |
 

@@ -5,15 +5,15 @@
     <ele>1980</ele>
   </wpt>
   <wpt lat="24.19460" lon="121.32160">
-    <name>水源</name>
+    <name>稜線休息點</name>
     <ele>2240</ele>
   </wpt>
   <wpt lat="24.20480" lon="121.33250">
-    <name>營地</name>
+    <name>山頂</name>
     <ele>2560</ele>
   </wpt>
   <trk>
-    <name>示範航跡</name>
+    <name>範例路線</name>
     <trkseg>
       <trkpt lat="24.18720" lon="121.31020"><ele>1980</ele></trkpt>
       <trkpt lat="24.18910" lon="121.31290"><ele>2050</ele></trkpt>

@@ -10,6 +10,7 @@
 - 可用線上 OpenTopoMap 地形圖作為可見底圖，已瀏覽圖磚會被 Service Worker 快取
 - Raster MBTiles 可嘗試作為 Canvas 底圖；Vector PBF 目前先完成匯入辨識，尚未渲染
 - Mapsforge `.map` 可先匯入辨識範圍；完整向量渲染仍需後續接渲染管線
+- SQL.js 與 wasm 已放在 `vendor/sqljs/`，讀取 MBTiles 不依賴 CDN
 - GPX 匯入與航點列表
 - GPS 定位
 - 每 10 秒或移動超過 10 公尺才更新偏離判斷

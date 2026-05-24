@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 4173);
+const host = process.env.HOST || '0.0.0.0';
 
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -14,6 +15,8 @@ const types = {
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.gpx': 'application/gpx+xml; charset=utf-8',
+  '.wasm': 'application/wasm',
 };
 
 const server = http.createServer(async (request, response) => {
@@ -37,7 +40,7 @@ const server = http.createServer(async (request, response) => {
   createReadStream(target).pipe(response);
 });
 
-server.listen(port, async () => {
+server.listen(port, host, async () => {
   const localIp = await getLocalIp();
   console.log(`PWA local: http://localhost:${port}`);
   if (localIp) console.log(`LAN preview: http://${localIp}:${port}`);

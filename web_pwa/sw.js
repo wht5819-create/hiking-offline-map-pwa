@@ -1,13 +1,17 @@
-const CACHE_NAME = 'hiking-pwa-v9';
+const CACHE_NAME = 'hiking-pwa-v22';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
+  './styles.css?v=22',
+  './app.js?v=22',
   './manifest.webmanifest',
   './assets/icon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',
+  './vendor/sqljs/sql-wasm.js?v=22',
+  './vendor/sqljs/sql-wasm.wasm',
+  './sample/demo-route.gpx',
+  './sample/rudy-route-z12-z16.mbtiles',
 ];
 
 self.addEventListener('install', (event) => {
