@@ -54,7 +54,7 @@ elements.installButton.addEventListener('click', async () => {
 });
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=17').then(() => {
+  navigator.serviceWorker.register('./sw.js?v=18').then(() => {
     state.offlineReady = true;
     updateDepartureChecklist();
   }).catch(() => {

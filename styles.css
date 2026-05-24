@@ -256,7 +256,7 @@ h2 {
 
 .controls {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 5px;
 }
 
@@ -277,6 +277,10 @@ h2 {
 #trackingButton {
   background: var(--green);
   color: #fff;
+}
+
+.secondary-action {
+  display: none;
 }
 
 .file-button input {
@@ -464,7 +468,7 @@ h2 {
   }
 
   .controls {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .metrics {
