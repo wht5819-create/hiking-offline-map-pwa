@@ -1,9 +1,9 @@
-const CACHE_NAME = 'hiking-pwa-v18';
+const CACHE_NAME = 'hiking-pwa-v19';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css?v=18',
-  './app.js?v=18',
+  './styles.css?v=19',
+  './app.js?v=19',
   './manifest.webmanifest',
   './assets/icon.svg',
   './assets/icon-192.png',

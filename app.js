@@ -54,7 +54,7 @@ elements.installButton.addEventListener('click', async () => {
 });
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=18').then(() => {
+  navigator.serviceWorker.register('./sw.js?v=19').then(() => {
     state.offlineReady = true;
     updateDepartureChecklist();
   }).catch(() => {
@@ -531,14 +531,12 @@ function loadImage(url) {
 function drawRoute(width, height) {
   const screenPoints = buildRouteScreenPoints(width, height, state.routePoints);
   if (screenPoints.length < 2) return;
-  drawRouteStroke(screenPoints, 'rgba(255, 255, 255, 0.94)', 14);
-  drawRouteStroke(screenPoints, 'rgba(63, 51, 45, 0.75)', 9);
+  drawRouteStroke(screenPoints, 'rgba(255, 255, 255, 0.94)', 11);
   for (const [index, segment] of state.routeSegments.entries()) {
     const segmentPoints = buildRouteScreenPoints(width, height, segment);
-    const color = index % 2 === 0 ? '#ff8b3d' : '#ffb15f';
-    drawRouteStroke(segmentPoints, color, 6);
+    const color = index % 2 === 0 ? '#166bc8' : '#2b84df';
+    drawRouteStroke(segmentPoints, color, 5.5);
   }
-  drawDirectionArrows(screenPoints);
   drawWaypointPins(width, height);
   drawRouteEndpoints(screenPoints);
 }
@@ -657,7 +655,7 @@ function drawWaypointPins(width, height) {
 function drawSmallMapPoint(point, color) {
   ctx.save();
   ctx.beginPath();
-  ctx.arc(point.x, point.y, 7, 0, Math.PI * 2);
+  ctx.arc(point.x, point.y, 6.5, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 2.5;
@@ -751,24 +749,26 @@ function calculateRouteLengthMeters(points) {
 function drawRouteEndpoints(points) {
   const start = points[0];
   const end = points[points.length - 1];
-  drawRouteMarker(start, '#2f6f4f', '起');
-  drawRouteMarker(end, '#b3261e', '終');
+  drawRouteMarker(start, '#2f6f4f', '');
+  drawRouteMarker(end, '#f33d3d', '');
 }
 
 function drawRouteMarker(point, color, label) {
   ctx.save();
   ctx.beginPath();
-  ctx.arc(point.x, point.y, 11, 0, Math.PI * 2);
+  ctx.arc(point.x, point.y, 8.5, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2.5;
   ctx.strokeStyle = '#fff';
   ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.font = '700 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, point.x, point.y + 0.5);
+  if (label) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 10px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, point.x, point.y + 0.5);
+  }
   ctx.restore();
 }
 
