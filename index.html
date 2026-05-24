@@ -11,58 +11,37 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <link rel="stylesheet" href="styles.css?v=15" />
+    <link rel="stylesheet" href="styles.css?v=16" />
   </head>
   <body>
     <main class="app-shell">
-      <section class="map-stage" aria-label="魯地圖風格地圖">
+      <section class="map-stage" aria-label="魯地圖">
         <canvas id="mapCanvas" width="900" height="900"></canvas>
         <div class="gps-dot" id="gpsDot" hidden></div>
-
-        <header class="top-bar">
-          <div>
-            <p class="eyebrow">Rudy style PWA</p>
-            <h1>登山離線地圖</h1>
-          </div>
-          <button class="icon-button" id="installButton" type="button" title="安裝到裝置" hidden>
-            <span aria-hidden="true">↓</span>
-          </button>
-        </header>
-
-        <div class="gps-signal" aria-label="GPS 狀態">
-          <span>GPS</span>
-          <i></i><i></i><i></i>
-        </div>
-
-        <div class="status-pill" id="safetyStatus">請先載入 GPX 或範例路線</div>
-
-        <div class="map-actions" aria-label="地圖工具">
-          <button type="button" title="搜尋">⌕</button>
-          <button type="button" title="選單">☰</button>
-        </div>
-
-        <button class="safety-button" type="button" title="安全檢查">♡</button>
-        <div class="map-attribution">Rudy style preview | Raster MBTiles 可呈現真實魯地圖底圖</div>
+        <div class="status-pill" id="safetyStatus">準備載入地圖</div>
+        <button class="icon-button" id="installButton" type="button" title="安裝" hidden>
+          <span aria-hidden="true">↓</span>
+        </button>
       </section>
 
-      <section class="controls" aria-label="操作">
+      <section class="controls" aria-label="地圖操作">
         <label class="file-button">
           <input id="mapInput" type="file" accept=".mbtiles,.map,.sqlite,.db,application/octet-stream,application/vnd.sqlite3" />
-          匯入魯地圖 MBTiles
+          匯入圖
         </label>
         <label class="file-button">
           <input id="gpxInput" type="file" accept=".gpx,application/gpx+xml,text/xml" />
           匯入 GPX
         </label>
-        <button id="sampleMapButton" type="button">範例魯地圖</button>
+        <button id="sampleMapButton" type="button">範例圖</button>
         <button id="sampleRouteButton" type="button">範例路線</button>
-        <button id="trackingButton" type="button">開始定位</button>
+        <button id="trackingButton" type="button">定位</button>
         <button id="clearButton" type="button">清除</button>
       </section>
 
-      <section class="metrics" aria-label="路線摘要">
+      <section class="metrics" aria-label="狀態">
         <div>
-          <span>軌跡點</span>
+          <span>軌跡</span>
           <strong id="trackCount">0</strong>
         </div>
         <div>
@@ -70,14 +49,14 @@
           <strong id="waypointCount">0</strong>
         </div>
         <div>
-          <span>偏離距離</span>
+          <span>偏離</span>
           <strong id="deviationDistance">--</strong>
         </div>
       </section>
 
-      <section class="panel map-package" aria-label="魯地圖資料">
+      <section class="panel map-package" aria-label="圖資狀態">
         <div class="panel-heading">
-          <h2>魯地圖資料</h2>
+          <h2>圖資</h2>
           <span id="mapName">尚未匯入</span>
         </div>
         <dl class="map-meta" id="mapMeta">
@@ -85,7 +64,7 @@
           <div><dt>縮放</dt><dd>--</dd></div>
           <div><dt>圖磚</dt><dd>--</dd></div>
         </dl>
-        <p id="mapStatus" class="helper-text">要得到截圖那種魯地圖底圖，請匯入由 Rudy `.map` 預轉出的 raster `.mbtiles`。直接匯入 `.map` 目前只能讀取範圍，尚不能完整渲染樣式。</p>
+        <p id="mapStatus" class="helper-text">可匯入 raster MBTiles 顯示魯地圖底圖。</p>
       </section>
 
       <section class="panel departure-check" aria-label="出發檢查">
@@ -95,27 +74,22 @@
         </div>
         <ul class="check-list">
           <li data-check="secure"><span></span><strong>HTTPS</strong><em>確認中</em></li>
-          <li data-check="offline"><span></span><strong>離線快取</strong><em>等待快取</em></li>
-          <li data-check="map"><span></span><strong>魯地圖</strong><em>未匯入</em></li>
+          <li data-check="offline"><span></span><strong>離線</strong><em>等待</em></li>
+          <li data-check="map"><span></span><strong>圖資</strong><em>未匯入</em></li>
           <li data-check="gpx"><span></span><strong>GPX</strong><em>未載入</em></li>
           <li data-check="gps"><span></span><strong>定位</strong><em>未啟動</em></li>
         </ul>
       </section>
 
-      <section class="panel" aria-label="航點">
+      <section class="panel waypoint-panel" aria-label="航點">
         <div class="panel-heading">
           <h2>航點</h2>
           <span id="routeName">尚未載入路線</span>
         </div>
         <ul id="waypointList" class="waypoint-list"></ul>
       </section>
-
-      <section class="panel install-note">
-        <h2>轉圖方式</h2>
-        <p>目前採用「魯地圖先轉 raster MBTiles，再匯入 PWA」路線。可用 `tools/convert_rudy_map_to_mbtiles.ps1` 先產生路線範圍圖磚，手機端再匯入。</p>
-      </section>
     </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
-    <script src="app.js?v=15" type="module"></script>
+    <script src="app.js?v=16" type="module"></script>
   </body>
 </html>

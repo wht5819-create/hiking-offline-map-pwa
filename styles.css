@@ -40,17 +40,17 @@ input {
 
 .app-shell {
   min-height: 100vh;
-  padding: 0 0 max(18px, env(safe-area-inset-bottom));
+  padding: 0 0 max(8px, env(safe-area-inset-bottom));
   display: grid;
-  gap: 10px;
+  gap: 6px;
   max-width: 1180px;
   margin: 0 auto;
 }
 
 .map-stage {
   position: relative;
-  min-height: 68vh;
-  height: min(82vh, 820px);
+  min-height: 76vh;
+  height: min(86vh, 900px);
   overflow: hidden;
   background:
     radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.24), transparent 30%),
@@ -62,6 +62,10 @@ input {
   height: 100%;
   display: block;
   min-height: 68vh;
+}
+
+.top-bar {
+  display: none;
 }
 
 .top-bar {
@@ -123,6 +127,10 @@ h2 {
 }
 
 .gps-signal {
+  display: none;
+}
+
+.gps-signal {
   position: absolute;
   left: max(18px, env(safe-area-inset-left));
   top: 18%;
@@ -160,16 +168,18 @@ h2 {
 
 .status-pill {
   position: absolute;
-  left: max(16px, env(safe-area-inset-left));
-  right: max(16px, env(safe-area-inset-right));
-  bottom: 16px;
-  min-height: 42px;
-  padding: 10px 14px;
+  left: max(8px, env(safe-area-inset-left));
+  right: auto;
+  bottom: 8px;
+  max-width: min(82vw, 520px);
+  min-height: 28px;
+  padding: 5px 8px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.84);
-  box-shadow: 0 6px 18px rgba(35, 48, 32, 0.18);
-  font-weight: 800;
+  box-shadow: 0 3px 10px rgba(35, 48, 32, 0.14);
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .status-pill.danger {
@@ -183,6 +193,10 @@ h2 {
 }
 
 .map-actions {
+  display: none;
+}
+
+.map-actions {
   position: absolute;
   right: max(18px, env(safe-area-inset-right));
   top: 22%;
@@ -191,6 +205,10 @@ h2 {
 }
 
 .map-actions button,
+.safety-button {
+  display: none;
+}
+
 .safety-button {
   width: clamp(66px, 12vw, 92px);
   height: clamp(66px, 12vw, 92px);
@@ -229,6 +247,10 @@ h2 {
 }
 
 .map-attribution {
+  display: none;
+}
+
+.map-attribution {
   position: absolute;
   right: 8px;
   bottom: 2px;
@@ -245,25 +267,26 @@ h2 {
 .controls,
 .metrics,
 .panel {
-  margin-inline: 10px;
+  margin-inline: 8px;
 }
 
 .controls {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 0.7fr;
-  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
 }
 
 .controls button,
 .file-button {
-  min-height: 46px;
+  min-height: 38px;
   display: inline-grid;
   place-items: center;
-  padding: 0 10px;
+  padding: 0 6px;
   border-radius: 8px;
   border: 1px solid var(--green);
   background: var(--surface);
   color: var(--green-strong);
+  font-size: 0.86rem;
   font-weight: 800;
 }
 
@@ -279,7 +302,7 @@ h2 {
 .metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 5px;
 }
 
 .metrics div,
@@ -290,7 +313,7 @@ h2 {
 }
 
 .metrics div {
-  padding: 12px 10px;
+  padding: 7px 8px;
   display: grid;
   gap: 4px;
 }
@@ -303,7 +326,7 @@ h2 {
 }
 
 .metrics strong {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .map-meta {
@@ -337,7 +360,7 @@ h2 {
 }
 
 .panel {
-  padding: 14px;
+  padding: 10px;
 }
 
 .panel-heading {
@@ -346,6 +369,12 @@ h2 {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 10px;
+}
+
+.map-package,
+.departure-check,
+.waypoint-panel {
+  display: none;
 }
 
 .waypoint-list {
@@ -428,11 +457,11 @@ h2 {
 @media (max-width: 620px) {
   .map-stage,
   #mapCanvas {
-    min-height: 76vh;
+    min-height: calc(100vh - 156px);
   }
 
   .map-stage {
-    height: 76vh;
+    height: calc(100vh - 156px);
   }
 
   .top-bar h1 {
@@ -451,11 +480,11 @@ h2 {
   }
 
   .controls {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .map-meta {

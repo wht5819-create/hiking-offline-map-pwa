@@ -55,7 +55,7 @@ elements.installButton.addEventListener('click', async () => {
 });
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=15').then(() => {
+  navigator.serviceWorker.register('./sw.js?v=16').then(() => {
     state.offlineReady = true;
     updateDepartureChecklist();
   }).catch(() => {
@@ -540,7 +540,6 @@ function drawRoute(width, height) {
     drawRouteStroke(segmentPoints, color, 6);
   }
   drawDirectionArrows(screenPoints);
-  drawRouteCallouts(width, height);
   drawWaypointPins(width, height);
   drawRouteEndpoints(screenPoints);
 }
@@ -652,8 +651,27 @@ function buildRouteCalloutSamples(points) {
 function drawWaypointPins(width, height) {
   for (const waypoint of state.waypoints.slice(0, 30)) {
     const point = project(waypoint, width, height);
-    drawPinLabel(point, '#2f66c5', waypoint.name, Number.isFinite(waypoint.ele) ? `${Math.round(waypoint.ele)}m` : '');
+    drawSmallMapPoint(point, '#2f66c5');
   }
+}
+
+function drawSmallMapPoint(point, color) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 7, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2.5;
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(point.x, point.y + 7);
+  ctx.lineTo(point.x - 5, point.y + 17);
+  ctx.lineTo(point.x + 5, point.y + 17);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawPinLabel(point, color, title, subtitle = '') {
