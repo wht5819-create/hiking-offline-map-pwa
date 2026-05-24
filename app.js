@@ -11,6 +11,11 @@ const state = {
   mapPackage: null,
   tileImageCache: new Map(),
   onlineTileCache: new Map(),
+  layers: {
+    route: true,
+    waypoints: true,
+    highContrast: true,
+  },
 };
 
 const storedMapPackageKey = 'hiking:pwa:map-package:v1';
@@ -26,6 +31,10 @@ const elements = {
   demoButton: document.querySelector('#demoButton'),
   trackingButton: document.querySelector('#trackingButton'),
   clearButton: document.querySelector('#clearButton'),
+  routeLayerToggle: document.querySelector('#routeLayerToggle'),
+  waypointLayerToggle: document.querySelector('#waypointLayerToggle'),
+  contrastLayerToggle: document.querySelector('#contrastLayerToggle'),
+  regionList: document.querySelector('#regionList'),
   safetyStatus: document.querySelector('#safetyStatus'),
   deviationDistance: document.querySelector('#deviationDistance'),
   gpsDot: document.querySelector('#gpsDot'),
@@ -54,7 +63,7 @@ elements.installButton.addEventListener('click', async () => {
 });
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=19').then(() => {
+  navigator.serviceWorker.register('./sw.js?v=20').then(() => {
     state.offlineReady = true;
     updateDepartureChecklist();
   }).catch(() => {
@@ -148,6 +157,45 @@ elements.clearButton.addEventListener('click', () => {
   updateDepartureChecklist();
   setSafetyStatus('尚未匯入 GPX', '');
   drawMap();
+});
+
+elements.routeLayerToggle.addEventListener('change', () => {
+  state.layers.route = elements.routeLayerToggle.checked;
+  drawMap();
+});
+
+elements.waypointLayerToggle.addEventListener('change', () => {
+  state.layers.waypoints = elements.waypointLayerToggle.checked;
+  drawMap();
+});
+
+elements.contrastLayerToggle.addEventListener('change', () => {
+  state.layers.highContrast = elements.contrastLayerToggle.checked;
+  drawMap();
+});
+
+elements.regionList.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-region]');
+  if (!button) return;
+  const region = button.dataset.region;
+  if (region === 'demo') {
+    try {
+      setSafetyStatus('正在載入示範區...', '');
+      await loadSampleMap();
+      setSafetyStatus('示範區已載入', 'ok');
+    } catch (error) {
+      setSafetyStatus(`示範區載入失敗：${error.message}`, 'danger');
+    }
+    return;
+  }
+  const regionNames = {
+    north: '北部',
+    central: '中部',
+    south: '南部',
+    east: '東部',
+    all: '全台',
+  };
+  setSafetyStatus(`${regionNames[region]}地圖需先下載 MBTiles，再用「匯入圖」載入`, '');
 });
 
 window.addEventListener('resize', drawMap);
@@ -360,7 +408,7 @@ function drawMap() {
     drawRasterMap(width, height);
   }
 
-  if (state.routePoints.length >= 2 && state.bounds) {
+  if (state.layers.route && state.routePoints.length >= 2 && state.bounds) {
     drawRoute(width, height);
   }
   if (state.lastAcceptedPosition) {
@@ -486,7 +534,7 @@ async function drawOnlineTopoMap(width, height) {
     ctx.drawImage(tile.image, start.x, start.y, end.x - start.x, end.y - start.y);
   }
 
-  if (state.routePoints.length >= 2 && state.bounds) drawRoute(width, height);
+  if (state.layers.route && state.routePoints.length >= 2 && state.bounds) drawRoute(width, height);
   if (state.lastAcceptedPosition) updateGpsDot(state.lastAcceptedPosition);
 }
 
@@ -537,7 +585,7 @@ function drawRoute(width, height) {
     const color = index % 2 === 0 ? '#166bc8' : '#2b84df';
     drawRouteStroke(segmentPoints, color, 5.5);
   }
-  drawWaypointPins(width, height);
+  if (state.layers.waypoints) drawWaypointPins(width, height);
   drawRouteEndpoints(screenPoints);
 }
 
@@ -1186,10 +1234,12 @@ async function drawRasterMap(width, height) {
     const bottomRight = tileToLonLat(tile.x + 1, tile.y + 1, zoom);
     const start = projectIntoBounds({ lon: topLeft.lon, lat: topLeft.lat }, width, height, bounds);
     const end = projectIntoBounds({ lon: bottomRight.lon, lat: bottomRight.lat }, width, height, bounds);
+    if (state.layers.highContrast) ctx.filter = 'contrast(1.08) saturate(1.08)';
     ctx.drawImage(tile.image, start.x, start.y, end.x - start.x, end.y - start.y);
+    ctx.filter = 'none';
   }
 
-  if (state.routePoints.length >= 2 && state.bounds) drawRoute(width, height);
+  if (state.layers.route && state.routePoints.length >= 2 && state.bounds) drawRoute(width, height);
   if (state.lastAcceptedPosition) updateGpsDot(state.lastAcceptedPosition);
 }
 

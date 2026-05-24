@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <link rel="stylesheet" href="styles.css?v=19" />
+    <link rel="stylesheet" href="styles.css?v=20" />
   </head>
   <body>
     <main class="app-shell">
@@ -33,8 +33,40 @@
         </button>
 
         <details class="tool-drawer">
-          <summary aria-label="工具選單">☰</summary>
-          <section class="controls" aria-label="地圖操作">
+          <summary aria-label="圖層與工具">☰</summary>
+          <section class="controls" aria-label="圖層與地圖操作">
+            <h2>圖層</h2>
+            <label class="layer-toggle">
+              <input id="routeLayerToggle" type="checkbox" checked />
+              <span>GPX 路線</span>
+            </label>
+            <label class="layer-toggle">
+              <input id="waypointLayerToggle" type="checkbox" checked />
+              <span>航點</span>
+            </label>
+            <label class="layer-toggle">
+              <input id="contrastLayerToggle" type="checkbox" checked />
+              <span>清晰底圖</span>
+            </label>
+            <label class="layer-toggle disabled">
+              <input type="checkbox" checked disabled />
+              <span>10m 等高線</span>
+            </label>
+            <label class="layer-toggle disabled">
+              <input type="checkbox" disabled />
+              <span>通訊點 / 困難路線</span>
+            </label>
+            <div class="tool-divider"></div>
+            <h2>地圖分區</h2>
+            <div class="region-list" id="regionList">
+              <button type="button" data-region="demo">示範區</button>
+              <button type="button" data-region="north">北部</button>
+              <button type="button" data-region="central">中部</button>
+              <button type="button" data-region="south">南部</button>
+              <button type="button" data-region="east">東部</button>
+              <button type="button" data-region="all">全台</button>
+            </div>
+            <div class="tool-divider"></div>
             <label class="file-button">
               <input id="mapInput" type="file" accept=".mbtiles,.map,.sqlite,.db,application/octet-stream,application/vnd.sqlite3" />
               匯入圖
@@ -99,6 +131,6 @@
       </section>
     </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
-    <script src="app.js?v=19" type="module"></script>
+    <script src="app.js?v=20" type="module"></script>
   </body>
 </html>
