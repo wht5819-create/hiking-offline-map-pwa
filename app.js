@@ -23,8 +23,7 @@ const elements = {
   waypointCount: document.querySelector('#waypointCount'),
   waypointList: document.querySelector('#waypointList'),
   routeName: document.querySelector('#routeName'),
-  sampleMapButton: document.querySelector('#sampleMapButton'),
-  sampleRouteButton: document.querySelector('#sampleRouteButton'),
+  demoButton: document.querySelector('#demoButton'),
   trackingButton: document.querySelector('#trackingButton'),
   clearButton: document.querySelector('#clearButton'),
   safetyStatus: document.querySelector('#safetyStatus'),
@@ -55,7 +54,7 @@ elements.installButton.addEventListener('click', async () => {
 });
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=16').then(() => {
+  navigator.serviceWorker.register('./sw.js?v=17').then(() => {
     state.offlineReady = true;
     updateDepartureChecklist();
   }).catch(() => {
@@ -114,49 +113,15 @@ elements.gpxInput.addEventListener('change', async (event) => {
   }
 });
 
-elements.sampleMapButton.addEventListener('click', async () => {
+elements.demoButton.addEventListener('click', async () => {
   try {
     setSafetyStatus('正在載入範例魯地圖...', '');
-    elements.mapStatus.textContent = '正在讀取範例 raster MBTiles，第一次載入可能需要幾秒鐘。';
-    const response = await fetch('./sample/rudy-route-z12-z16.mbtiles');
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const blob = await response.blob();
-    const file = new File([blob], 'rudy-route-z12-z16.mbtiles', { type: 'application/octet-stream' });
-    const mapPackage = await importMapPackage(file);
-    state.mapPackage?.db?.close();
-    state.tileImageCache.clear();
-    state.mapPackage = mapPackage;
-    saveStoredMapPackage(mapPackage);
-    updateMapPackageSummary();
-    updateDepartureChecklist();
-    drawMap();
-    setSafetyStatus('範例魯地圖已載入；可再點範例路線查看橘色航跡', 'ok');
-  } catch (error) {
-    setSafetyStatus(`範例魯地圖載入失敗：${error.message}`, 'danger');
-  }
-});
-
-elements.sampleRouteButton.addEventListener('click', async () => {
-  try {
+    await loadSampleMap();
     setSafetyStatus('正在載入範例路線...', '');
-    const response = await fetch('./sample/demo-route.gpx', { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const xmlText = await response.text();
-    const parsed = parseGpx(xmlText);
-    state.routePoints = parsed.routePoints;
-    state.routeSegments = parsed.routeSegments;
-    state.waypoints = parsed.waypoints;
-    state.bounds = calculateBounds([...parsed.routePoints, ...parsed.waypoints]);
-    state.lastAcceptedPosition = null;
-    elements.gpsDot.hidden = true;
-    elements.routeName.textContent = '範例路線';
-    elements.deviationDistance.textContent = '--';
-    updateRouteSummary();
-    updateDepartureChecklist();
-    drawMap();
-    setSafetyStatus(`GPX 已載入：${state.routePoints.length} 個軌跡點、${state.waypoints.length} 個航點`, 'ok');
+    await loadSampleRoute();
+    setSafetyStatus('示範已載入：魯地圖底圖 + GPX 路線', 'ok');
   } catch (error) {
-    setSafetyStatus(`範例路線載入失敗：${error.message}`, 'danger');
+    setSafetyStatus(`示範載入失敗：${error.message}`, 'danger');
   }
 });
 
@@ -188,6 +153,40 @@ elements.clearButton.addEventListener('click', () => {
 window.addEventListener('resize', drawMap);
 updateDepartureChecklist();
 drawMap();
+
+async function loadSampleMap() {
+  elements.mapStatus.textContent = '正在讀取範例 raster MBTiles，第一次載入可能需要幾秒鐘。';
+  const response = await fetch('./sample/rudy-route-z12-z16.mbtiles');
+  if (!response.ok) throw new Error(`MBTiles HTTP ${response.status}`);
+  const blob = await response.blob();
+  const file = new File([blob], 'rudy-route-z12-z16.mbtiles', { type: 'application/octet-stream' });
+  const mapPackage = await importMapPackage(file);
+  state.mapPackage?.db?.close();
+  state.tileImageCache.clear();
+  state.mapPackage = mapPackage;
+  saveStoredMapPackage(mapPackage);
+  updateMapPackageSummary();
+  updateDepartureChecklist();
+  drawMap();
+}
+
+async function loadSampleRoute() {
+  const response = await fetch('./sample/demo-route.gpx', { cache: 'no-store' });
+  if (!response.ok) throw new Error(`GPX HTTP ${response.status}`);
+  const xmlText = await response.text();
+  const parsed = parseGpx(xmlText);
+  state.routePoints = parsed.routePoints;
+  state.routeSegments = parsed.routeSegments;
+  state.waypoints = parsed.waypoints;
+  state.bounds = calculateBounds([...parsed.routePoints, ...parsed.waypoints]);
+  state.lastAcceptedPosition = null;
+  elements.gpsDot.hidden = true;
+  elements.routeName.textContent = '範例路線';
+  elements.deviationDistance.textContent = '--';
+  updateRouteSummary();
+  updateDepartureChecklist();
+  drawMap();
+}
 
 function parseGpx(xmlText) {
   const documentXml = new DOMParser().parseFromString(xmlText, 'application/xml');
