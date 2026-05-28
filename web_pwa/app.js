@@ -9,27 +9,73 @@ const state = {
   deferredInstallPrompt: null,
   sqlReady: null,
   mapPackage: null,
+  selectedRegion: 'north',
+  viewZoom: 1,
+  panLat: 0,
+  panLon: 0,
+  drawFrame: null,
   tileImageCache: new Map(),
   onlineTileCache: new Map(),
+  leafletMap: null,
+  leafletOnlineLayer: null,
+  leafletMbtilesLayer: null,
+  leafletRouteLayer: null,
+  leafletWaypointLayer: null,
+  shouldFitRoute: false,
+  shouldFitMap: false,
   layers: {
     route: true,
     waypoints: true,
-    highContrast: true,
+    highContrast: false,
   },
 };
 
 const storedMapPackageKey = 'hiking:pwa:map-package:v1';
+const regionCatalog = {
+  north: {
+    label: '北部',
+    fileName: 'rudy-north.mbtiles',
+    url: './maps/rudy-north.mbtiles',
+    bounds: createBounds(120.85, 24.25, 122.05, 25.35),
+  },
+  central: {
+    label: '中部',
+    fileName: 'rudy-central.mbtiles',
+    url: './maps/rudy-central.mbtiles',
+    bounds: createBounds(120.45, 23.45, 121.55, 24.45),
+  },
+  south: {
+    label: '南部',
+    fileName: 'rudy-south.mbtiles',
+    url: './maps/rudy-south.mbtiles',
+    bounds: createBounds(120.05, 21.85, 121.15, 23.55),
+  },
+  east: {
+    label: '東部',
+    fileName: 'rudy-east.mbtiles',
+    url: './maps/rudy-east.mbtiles',
+    bounds: createBounds(120.95, 22.3, 122.05, 24.6),
+  },
+  all: {
+    label: '全台',
+    fileName: 'rudy-taiwan.mbtiles',
+    url: './maps/rudy-taiwan.mbtiles',
+    bounds: createBounds(120.0, 21.85, 122.1, 25.35),
+  },
+};
 
 const elements = {
   canvas: document.querySelector('#mapCanvas'),
+  leafletMap: document.querySelector('#leafletMap'),
   mapInput: document.querySelector('#mapInput'),
   gpxInput: document.querySelector('#gpxInput'),
   trackCount: document.querySelector('#trackCount'),
   waypointCount: document.querySelector('#waypointCount'),
   waypointList: document.querySelector('#waypointList'),
   routeName: document.querySelector('#routeName'),
-  demoButton: document.querySelector('#demoButton'),
   trackingButton: document.querySelector('#trackingButton'),
+  zoomInButton: document.querySelector('#zoomInButton'),
+  zoomOutButton: document.querySelector('#zoomOutButton'),
   clearButton: document.querySelector('#clearButton'),
   routeLayerToggle: document.querySelector('#routeLayerToggle'),
   waypointLayerToggle: document.querySelector('#waypointLayerToggle'),
@@ -44,13 +90,13 @@ const elements = {
   mapName: document.querySelector('#mapName'),
   mapMeta: document.querySelector('#mapMeta'),
   mapStatus: document.querySelector('#mapStatus'),
+  regionStatus: document.querySelector('#regionStatus'),
 };
 
 const ctx = elements.canvas.getContext('2d');
-const demoModeRequested =
-  new URLSearchParams(window.location.search).has('demo') ||
-  window.location.hash.toLowerCase().includes('demo');
-let demoScenarioLoading = false;
+const activePointers = new Map();
+let pinchStart = null;
+let dragStart = null;
 
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
@@ -67,7 +113,7 @@ elements.installButton.addEventListener('click', async () => {
 });
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=22').then(() => {
+  navigator.serviceWorker.register('./sw.js?v=38').then(() => {
     state.offlineReady = true;
     updateDepartureChecklist();
   }).catch(() => {
@@ -77,10 +123,14 @@ if ('serviceWorker' in navigator) {
 }
 
 restoreStoredMapPackage();
+updateRegionSelection();
 
 elements.mapInput.addEventListener('change', async (event) => {
   const file = event.target.files?.[0];
-  if (!file) return;
+  if (!file) {
+    setSafetyStatus('未選擇地圖檔', '');
+    return;
+  }
 
   try {
     setSafetyStatus('正在讀取魯地圖圖資', '');
@@ -107,27 +157,29 @@ elements.mapInput.addEventListener('change', async (event) => {
 
 elements.gpxInput.addEventListener('change', async (event) => {
   const file = event.target.files?.[0];
-  if (!file) return;
+  if (!file) {
+    setSafetyStatus('未選擇 GPX', '');
+    return;
+  }
 
   try {
+    setSafetyStatus(`正在讀取 GPX：${file.name}`, '');
     const xmlText = await file.text();
     const parsed = parseGpx(xmlText);
     state.routePoints = parsed.routePoints;
     state.routeSegments = parsed.routeSegments;
     state.waypoints = parsed.waypoints;
     state.bounds = calculateBounds([...parsed.routePoints, ...parsed.waypoints]);
+    resetViewTransform();
+    state.shouldFitRoute = true;
     elements.routeName.textContent = file.name;
     updateRouteSummary();
     updateDepartureChecklist();
     drawMap();
-    setSafetyStatus('GPX 已載入，可啟動定位', 'ok');
+    setSafetyStatus(`GPX 已載入：${state.routePoints.length} 點、${state.waypoints.length} 航點`, 'ok');
   } catch (error) {
     setSafetyStatus(`GPX 匯入失敗：${error.message}`, 'danger');
   }
-});
-
-elements.demoButton.addEventListener('click', () => {
-  loadDemoScenario('示範');
 });
 
 elements.trackingButton.addEventListener('click', () => {
@@ -138,12 +190,76 @@ elements.trackingButton.addEventListener('click', () => {
   startTracking();
 });
 
+elements.zoomInButton.addEventListener('click', () => {
+  if (state.leafletMap) {
+    state.leafletMap.zoomIn();
+    return;
+  }
+  setViewZoom(state.viewZoom * 1.25);
+});
+
+elements.zoomOutButton.addEventListener('click', () => {
+  if (state.leafletMap) {
+    state.leafletMap.zoomOut();
+    return;
+  }
+  setViewZoom(state.viewZoom / 1.25);
+});
+
+elements.canvas.addEventListener('wheel', (event) => {
+  event.preventDefault();
+  setViewZoom(state.viewZoom * (event.deltaY < 0 ? 1.12 : 1 / 1.12), false);
+}, { passive: false });
+
+elements.canvas.addEventListener('pointerdown', (event) => {
+  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  elements.canvas.setPointerCapture?.(event.pointerId);
+  if (activePointers.size === 1) {
+    dragStart = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      panLat: state.panLat,
+      panLon: state.panLon,
+      bounds: getViewBounds(),
+    };
+  }
+  if (activePointers.size === 2) {
+    const [a, b] = [...activePointers.values()];
+    dragStart = null;
+    pinchStart = {
+      distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      zoom: state.viewZoom,
+    };
+  }
+});
+
+elements.canvas.addEventListener('pointermove', (event) => {
+  if (!activePointers.has(event.pointerId)) return;
+  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (activePointers.size === 2 && pinchStart) {
+    const [a, b] = [...activePointers.values()];
+    const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    setViewZoom(pinchStart.zoom * (distance / pinchStart.distance), false);
+    return;
+  }
+  if (activePointers.size === 1 && dragStart?.pointerId === event.pointerId) {
+    panView(event.clientX - dragStart.x, event.clientY - dragStart.y, dragStart);
+  }
+});
+
+elements.canvas.addEventListener('pointerup', endPointerGesture);
+elements.canvas.addEventListener('pointercancel', endPointerGesture);
+
 elements.clearButton.addEventListener('click', () => {
   stopTracking();
   state.routePoints = [];
   state.routeSegments = [];
   state.waypoints = [];
   state.bounds = null;
+  resetViewTransform();
+  state.shouldFitRoute = false;
+  state.shouldFitMap = true;
   state.lastAcceptedPosition = null;
   elements.gpsDot.hidden = true;
   elements.gpxInput.value = '';
@@ -174,50 +290,51 @@ elements.regionList.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-region]');
   if (!button) return;
   const region = button.dataset.region;
-  if (region === 'demo') {
-    try {
-      setSafetyStatus('正在載入示範區...', '');
-      await loadSampleMap();
-      setSafetyStatus('示範區已載入', 'ok');
-    } catch (error) {
-      setSafetyStatus(`示範區載入失敗：${error.message}`, 'danger');
-    }
-    return;
+  try {
+    await selectRegion(region);
+  } catch (error) {
+    setSafetyStatus(`分區載入失敗：${error.message}`, 'danger');
   }
-  const regionNames = {
-    north: '北部',
-    central: '中部',
-    south: '南部',
-    east: '東部',
-    all: '全台',
-  };
-  setSafetyStatus(`${regionNames[region]}地圖需先下載 MBTiles，再用「匯入圖」載入`, '');
 });
 
 window.addEventListener('resize', drawMap);
 updateDepartureChecklist();
 drawMap();
 
-if (demoModeRequested) {
-  queueMicrotask(() => loadDemoScenario('Demo 模式'));
+function setViewZoom(nextZoom, showStatus = true) {
+  state.viewZoom = clamp(nextZoom, 0.38, 12);
+  requestDrawMap();
+  if (showStatus) setSafetyStatus(`縮放 ${state.viewZoom.toFixed(1)}x`, 'ok');
 }
 
-async function loadDemoScenario(label) {
-  if (demoScenarioLoading) return;
-  demoScenarioLoading = true;
-  elements.demoButton.disabled = true;
-  try {
-    setSafetyStatus('正在載入範例魯地圖...', '');
-    await loadSampleMap();
-    setSafetyStatus('正在載入範例路線...', '');
-    await loadSampleRoute();
-    setSafetyStatus(`${label}已載入：魯地圖底圖 + GPX 路線`, 'ok');
-  } catch (error) {
-    setSafetyStatus(`${label}載入失敗：${error.message}`, 'danger');
-  } finally {
-    demoScenarioLoading = false;
-    elements.demoButton.disabled = false;
-  }
+function resetViewTransform() {
+  state.viewZoom = 1;
+  state.panLat = 0;
+  state.panLon = 0;
+}
+
+function panView(deltaX, deltaY, start) {
+  if (!start.bounds) return;
+  const rect = elements.canvas.getBoundingClientRect();
+  const usableWidth = Math.max(1, rect.width - 24);
+  const usableHeight = Math.max(1, rect.height - 24);
+  state.panLon = start.panLon - (deltaX / usableWidth) * start.bounds.lonSpan;
+  state.panLat = start.panLat + (deltaY / usableHeight) * start.bounds.latSpan;
+  requestDrawMap();
+}
+
+function requestDrawMap() {
+  if (state.drawFrame) return;
+  state.drawFrame = requestAnimationFrame(() => {
+    state.drawFrame = null;
+    drawMap();
+  });
+}
+
+function endPointerGesture(event) {
+  activePointers.delete(event.pointerId);
+  if (dragStart?.pointerId === event.pointerId) dragStart = null;
+  if (activePointers.size < 2) pinchStart = null;
 }
 
 async function loadSampleMap() {
@@ -230,10 +347,50 @@ async function loadSampleMap() {
   state.mapPackage?.db?.close();
   state.tileImageCache.clear();
   state.mapPackage = mapPackage;
+  state.selectedRegion = 'north';
   saveStoredMapPackage(mapPackage);
+  updateRegionSelection();
   updateMapPackageSummary();
   updateDepartureChecklist();
   drawMap();
+}
+
+async function selectRegion(region) {
+  const item = regionCatalog[region];
+  if (!item) return;
+  state.selectedRegion = region;
+  state.bounds = item.bounds;
+  resetViewTransform();
+  state.shouldFitMap = true;
+  updateRegionSelection();
+  setSafetyStatus(`正在載入${item.label}離線地圖...`, '');
+  const mapPackage = await loadRegionMap(item);
+  state.mapPackage?.db?.close();
+  state.tileImageCache.clear();
+  state.mapPackage = mapPackage;
+  saveStoredMapPackage(state.mapPackage);
+  updateMapPackageSummary();
+  updateDepartureChecklist();
+  drawMap();
+  setSafetyStatus(`${item.label}離線地圖已載入`, 'ok');
+}
+
+async function loadRegionMap(item) {
+  const response = await fetch(item.url);
+  if (!response.ok) throw new Error(`${item.fileName} HTTP ${response.status}`);
+  const blob = await response.blob();
+  const file = new File([blob], item.fileName, { type: 'application/octet-stream' });
+  return importMapPackage(file);
+}
+
+function updateRegionSelection() {
+  for (const button of elements.regionList.querySelectorAll('[data-region]')) {
+    button.classList.toggle('active', button.dataset.region === state.selectedRegion);
+  }
+  const label = state.selectedRegion === 'demo'
+    ? '北部'
+    : regionCatalog[state.selectedRegion]?.label || '未選取';
+  elements.regionStatus.textContent = `目前：${label}`;
 }
 
 async function loadSampleRoute() {
@@ -411,66 +568,288 @@ function updateRouteSummary() {
 }
 
 function drawMap() {
+  if (window.L && elements.leafletMap) {
+    renderLeafletMap();
+    return;
+  }
+
   const canvas = elements.canvas;
   const rect = canvas.getBoundingClientRect();
   const scale = window.devicePixelRatio || 1;
   canvas.width = Math.max(320, Math.floor(rect.width * scale));
   canvas.height = Math.max(320, Math.floor(rect.height * scale));
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   const width = rect.width;
   const height = rect.height;
+  const renderId = Symbol('map-render');
+  state.activeRenderId = renderId;
   drawTerrain(width, height);
-  drawOnlineTopoMap(width, height);
-  if (state.mapPackage?.isRaster) {
-    drawRasterMap(width, height);
+  renderMapLayers(renderId, width, height);
+}
+
+function renderLeafletMap() {
+  const L = window.L;
+  const map = ensureLeafletMap(L);
+  updateLeafletBaseLayer(L, map);
+  updateLeafletRouteLayer(L, map);
+  updateLeafletWaypointLayer(L, map);
+  map.invalidateSize();
+
+  if (state.shouldFitRoute && state.bounds) {
+    map.fitBounds(boundsToLeaflet(L, state.bounds), { padding: [34, 34], animate: true });
+    state.shouldFitRoute = false;
+  } else if (state.shouldFitMap && state.bounds) {
+    map.fitBounds(boundsToLeaflet(L, state.bounds), { padding: [24, 24], animate: true });
+    state.shouldFitMap = false;
+  }
+}
+
+function ensureLeafletMap(L) {
+  if (state.leafletMap) return state.leafletMap;
+
+  elements.canvas.hidden = true;
+  state.leafletMap = L.map(elements.leafletMap, {
+    zoomControl: false,
+    attributionControl: false,
+    preferCanvas: true,
+    inertia: true,
+    inertiaDeceleration: 2600,
+    zoomSnap: 0.25,
+    zoomDelta: 0.5,
+    wheelPxPerZoomLevel: 86,
+    minZoom: 8,
+    maxZoom: 19,
+  }).setView([23.75, 121.05], 8);
+
+  return state.leafletMap;
+}
+
+function updateLeafletBaseLayer(L, map) {
+  const canUseOnline = navigator.onLine;
+  if (canUseOnline) {
+    if (state.leafletMbtilesLayer) {
+      map.removeLayer(state.leafletMbtilesLayer);
+      state.leafletMbtilesLayer = null;
+    }
+    if (!state.leafletOnlineLayer) {
+      state.leafletOnlineLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        subdomains: ['a', 'b', 'c'],
+        minZoom: 5,
+        maxZoom: 19,
+        maxNativeZoom: 17,
+        updateWhenIdle: false,
+        updateWhenZooming: true,
+        keepBuffer: 3,
+      });
+      state.leafletOnlineLayer.addTo(map);
+    }
+    return;
   }
 
+  if (state.leafletOnlineLayer) {
+    map.removeLayer(state.leafletOnlineLayer);
+    state.leafletOnlineLayer = null;
+  }
+
+  if (!state.mapPackage?.isRaster) return;
+  if (state.leafletMbtilesLayer?.options?.fileName === state.mapPackage.fileName) return;
+  if (state.leafletMbtilesLayer) map.removeLayer(state.leafletMbtilesLayer);
+  state.leafletMbtilesLayer = createLeafletMbtilesLayer(L, state.mapPackage);
+  state.leafletMbtilesLayer.addTo(map);
+}
+
+function createLeafletMbtilesLayer(L, mapPackage) {
+  const MbtilesLayer = L.GridLayer.extend({
+    createTile(coords, done) {
+      const tile = document.createElement('img');
+      tile.alt = '';
+      tile.decoding = 'async';
+      tile.loading = 'eager';
+      try {
+        const nativeZoom = clamp(coords.z, mapPackage.minZoom, mapPackage.maxZoom);
+        const overzoom = 2 ** Math.max(0, coords.z - nativeZoom);
+        const x = Math.floor(coords.x / overzoom);
+        const y = Math.floor(coords.y / overzoom);
+        const row = mapPackage.scheme === 'xyz' ? y : (2 ** nativeZoom - 1 - y);
+        const statement = mapPackage.db.prepare(
+          'SELECT tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ? LIMIT 1',
+        );
+        statement.bind([nativeZoom, x, row]);
+        const hasRow = statement.step();
+        const tileData = hasRow ? statement.get()[0] : null;
+        statement.free();
+        if (!tileData) {
+          done(null, tile);
+          return tile;
+        }
+        const blob = new Blob([tileData], { type: tileMimeType(mapPackage.format) });
+        const url = URL.createObjectURL(blob);
+        tile.onload = () => {
+          URL.revokeObjectURL(url);
+          done(null, tile);
+        };
+        tile.onerror = () => {
+          URL.revokeObjectURL(url);
+          done(null, tile);
+        };
+        tile.src = url;
+      } catch (error) {
+        done(error, tile);
+      }
+      return tile;
+    },
+  });
+  return new MbtilesLayer({
+    fileName: mapPackage.fileName,
+    minZoom: mapPackage.minZoom,
+    maxZoom: 19,
+    maxNativeZoom: mapPackage.maxZoom,
+    tileSize: 256,
+    keepBuffer: 3,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+  });
+}
+
+function updateLeafletRouteLayer(L, map) {
+  if (state.leafletRouteLayer) {
+    map.removeLayer(state.leafletRouteLayer);
+    state.leafletRouteLayer = null;
+  }
+  if (!state.layers.route || state.routeSegments.length === 0) return;
+
+  const outline = [];
+  const tracks = [];
+  for (const segment of state.routeSegments) {
+    const latLngs = segment.map((point) => [point.lat, point.lon]);
+    if (latLngs.length < 2) continue;
+    outline.push(L.polyline(latLngs, {
+      color: 'rgba(255,255,255,0.94)',
+      weight: 8,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false,
+    }));
+    tracks.push(L.polyline(latLngs, {
+      color: '#146fc8',
+      weight: 4,
+      opacity: 0.96,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false,
+    }));
+  }
+  state.leafletRouteLayer = L.layerGroup([...outline, ...tracks]).addTo(map);
+}
+
+function updateLeafletWaypointLayer(L, map) {
+  if (state.leafletWaypointLayer) {
+    map.removeLayer(state.leafletWaypointLayer);
+    state.leafletWaypointLayer = null;
+  }
+  if (!state.layers.waypoints || state.waypoints.length === 0) return;
+
+  const icon = L.divIcon({
+    className: 'leaflet-waypoint-pin',
+    html: '<span>★</span>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+  const markers = state.waypoints.map((point) => (
+    L.marker([point.lat, point.lon], { icon, title: point.name || 'Waypoint' })
+  ));
+  state.leafletWaypointLayer = L.layerGroup(markers).addTo(map);
+}
+
+function boundsToLeaflet(L, bounds) {
+  return L.latLngBounds(
+    [bounds.minLat, bounds.minLon],
+    [bounds.maxLat, bounds.maxLon],
+  );
+}
+
+async function renderMapLayers(renderId, width, height) {
+  const hasOnlineTiles = navigator.onLine ? await drawOnlineTopoMap(width, height) : false;
+  if (state.activeRenderId !== renderId) return;
+
+  if (!hasOnlineTiles && state.mapPackage?.isRaster) {
+    await drawRasterMap(width, height);
+    if (state.activeRenderId !== renderId) return;
+  }
+
+  if (!hasOnlineTiles && state.mapPackage?.type === 'region') {
+    drawRegionPlaceholder(width, height);
+  }
+
+  drawDynamicMapLayers(width, height);
+}
+
+function drawDynamicMapLayers(width, height) {
   if (state.layers.route && state.routePoints.length >= 2 && state.bounds) {
     drawRoute(width, height);
   }
-  if (state.lastAcceptedPosition) {
-    updateGpsDot(state.lastAcceptedPosition);
-  }
+  if (state.lastAcceptedPosition) updateGpsDot(state.lastAcceptedPosition);
+}
+
+function drawRegionPlaceholder(width, height) {
+  const item = state.mapPackage;
+  if (!item?.bounds) return;
+
+  ctx.save();
+  const panelWidth = Math.min(260, width - 36);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+  roundedRectPath(18, 18, panelWidth, 58, 8);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(47, 111, 79, 0.28)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = '#1f563d';
+  ctx.font = '800 15px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillText(item.fileName, 32, 42);
+  ctx.fillStyle = '#5d665c';
+  ctx.font = '700 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillText(`離線檔：${item.metadata.recommendedFile}`, 32, 62);
+  ctx.restore();
 }
 
 function drawTerrain(width, height) {
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#b7c979';
+  ctx.fillStyle = '#e7e4c9';
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
-  ctx.globalAlpha = 0.24;
-  ctx.fillStyle = '#86aa56';
-  for (let i = 0; i < 7; i += 1) {
+  ctx.fillStyle = '#a9c96d';
+  for (let i = 0; i < 10; i += 1) {
     ctx.beginPath();
-    const cx = (width / 6) * i + ((i % 2) * 45);
-    const cy = height * (0.16 + (i % 5) * 0.17);
-    ctx.ellipse(cx, cy, width * 0.18, height * 0.13, i * 0.4, 0, Math.PI * 2);
+    const cx = (width / 5) * (i % 5) + ((i % 2) * 34);
+    const cy = height * (0.12 + Math.floor(i / 5) * 0.48 + (i % 3) * 0.08);
+    ctx.ellipse(cx, cy, width * 0.22, height * 0.16, i * 0.35, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(63, 86, 59, 0.28)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 34; i += 1) {
+  for (let i = 0; i < 44; i += 1) {
     ctx.beginPath();
-    const y = (height / 32) * i + 4;
+    const y = (height / 42) * i + 2;
     for (let x = -20; x <= width + 20; x += 20) {
-      const wave = Math.sin((x + i * 31) / 62) * 11 + Math.cos((x + i * 17) / 96) * 6;
+      const wave = Math.sin((x + i * 31) / 62) * 7 + Math.cos((x + i * 17) / 96) * 4;
       if (x === -20) ctx.moveTo(x, y + wave);
       else ctx.lineTo(x, y + wave);
     }
-    ctx.strokeStyle = i % 5 === 0 ? 'rgba(52, 73, 51, 0.42)' : 'rgba(52, 73, 51, 0.20)';
-    ctx.lineWidth = i % 5 === 0 ? 1.8 : 0.8;
+    ctx.strokeStyle = i % 5 === 0 ? 'rgba(91, 111, 67, 0.44)' : 'rgba(91, 111, 67, 0.22)';
+    ctx.lineWidth = i % 5 === 0 ? 1.35 : 0.75;
     ctx.stroke();
   }
   ctx.restore();
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(46, 146, 184, 0.74)';
-  ctx.lineWidth = 5;
+  ctx.strokeStyle = '#7eb7c8';
+  ctx.lineWidth = 4.5;
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(width * 0.72, -20);
@@ -478,22 +857,31 @@ function drawTerrain(width, height) {
   ctx.bezierCurveTo(width * 0.62, height * 0.76, width * 0.78, height * 0.88, width * 0.74, height + 20);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
-  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#f4efe2';
+  ctx.lineWidth = 7;
   ctx.beginPath();
   ctx.moveTo(-10, height * 0.55);
   ctx.bezierCurveTo(width * 0.18, height * 0.47, width * 0.33, height * 0.64, width * 0.52, height * 0.47);
   ctx.bezierCurveTo(width * 0.67, height * 0.34, width * 0.82, height * 0.46, width + 20, height * 0.32);
   ctx.stroke();
+  ctx.strokeStyle = '#ee9a56';
+  ctx.lineWidth = 2.8;
+  ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(132, 77, 45, 0.7)';
+  ctx.strokeStyle = '#2c7ed6';
   ctx.lineWidth = 3;
-  ctx.setLineDash([8, 7]);
+  ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(width * 0.1, height * 0.78);
   ctx.bezierCurveTo(width * 0.24, height * 0.68, width * 0.35, height * 0.82, width * 0.5, height * 0.7);
   ctx.bezierCurveTo(width * 0.6, height * 0.62, width * 0.72, height * 0.72, width * 0.92, height * 0.58);
   ctx.stroke();
+
+  ctx.fillStyle = 'rgba(55, 72, 48, 0.72)';
+  ctx.font = '700 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillText('山徑', width * 0.44, height * 0.69);
+  ctx.fillText('溪谷', width * 0.68, height * 0.42);
+  ctx.fillText('稜線', width * 0.22, height * 0.34);
   ctx.restore();
 }
 
@@ -531,10 +919,10 @@ function drawMapsforgePlaceholder(width, height) {
 
 async function drawOnlineTopoMap(width, height) {
   const bounds = getViewBounds();
-  if (!bounds) return;
+  if (!bounds) return false;
   const zoom = chooseOnlineZoom(bounds, width, height);
   const tileRange = getTileRange(bounds, zoom);
-  if (!tileRange) return;
+  if (!tileRange) return false;
 
   const tiles = [];
   for (let x = tileRange.minX; x <= tileRange.maxX; x += 1) {
@@ -552,18 +940,17 @@ async function drawOnlineTopoMap(width, height) {
     ctx.drawImage(tile.image, start.x, start.y, end.x - start.x, end.y - start.y);
   }
 
-  if (state.layers.route && state.routePoints.length >= 2 && state.bounds) drawRoute(width, height);
-  if (state.lastAcceptedPosition) updateGpsDot(state.lastAcceptedPosition);
+  return tiles.length > 0;
 }
 
 function chooseOnlineZoom(bounds, width, height) {
   let selected = 8;
-  const maxZoom = state.routePoints.length >= 2 ? 16 : 10;
+  const maxZoom = Math.min(17, (state.routePoints.length >= 2 ? 17 : 12) + Math.round(Math.log2(state.viewZoom)));
   for (let zoom = maxZoom; zoom >= 6; zoom -= 1) {
     const range = getTileRange(bounds, zoom);
     if (!range) continue;
     const tileTotal = (range.maxX - range.minX + 1) * (range.maxY - range.minY + 1);
-    if (tileTotal <= 42 || (width > 700 && height > 700 && tileTotal <= 70)) {
+    if (tileTotal <= 96 || (width > 700 && height > 700 && tileTotal <= 140)) {
       selected = zoom;
       break;
     }
@@ -597,11 +984,11 @@ function loadImage(url) {
 function drawRoute(width, height) {
   const screenPoints = buildRouteScreenPoints(width, height, state.routePoints);
   if (screenPoints.length < 2) return;
-  drawRouteStroke(screenPoints, 'rgba(255, 255, 255, 0.94)', 11);
+  drawRouteStroke(screenPoints, 'rgba(255, 255, 255, 0.9)', 7.25);
   for (const [index, segment] of state.routeSegments.entries()) {
     const segmentPoints = buildRouteScreenPoints(width, height, segment);
     const color = index % 2 === 0 ? '#166bc8' : '#2b84df';
-    drawRouteStroke(segmentPoints, color, 5.5);
+    drawRouteStroke(segmentPoints, color, 3.6);
   }
   if (state.layers.waypoints) drawWaypointPins(width, height);
   drawRouteEndpoints(screenPoints);
@@ -866,8 +1253,7 @@ function calculateBounds(points) {
   };
 }
 
-function boundsAroundPoint(point) {
-  const span = 0.01;
+function boundsAroundPoint(point, span = 0.01) {
   return {
     minLat: point.lat - span / 2,
     maxLat: point.lat + span / 2,
@@ -895,11 +1281,32 @@ function projectIntoBounds(point, width, height, bounds) {
 }
 
 function getViewBounds() {
+  let bounds = null;
   if (state.routePoints.length >= 2 && state.lastAcceptedPosition) {
-    return calculateBounds([...state.routePoints, ...state.waypoints, state.lastAcceptedPosition]);
+    bounds = calculateBounds([...state.routePoints, ...state.waypoints, state.lastAcceptedPosition]);
+  } else if (state.lastAcceptedPosition && state.routePoints.length < 2) {
+    bounds = boundsAroundPoint(state.lastAcceptedPosition);
+  } else {
+    bounds = state.bounds || state.mapPackage?.bounds || null;
   }
-  if (state.lastAcceptedPosition && state.routePoints.length < 2) return boundsAroundPoint(state.lastAcceptedPosition);
-  return state.bounds || state.mapPackage?.bounds || null;
+  return applyViewZoom(bounds);
+}
+
+function applyViewZoom(bounds) {
+  if (!bounds) return bounds;
+  const zoom = Math.max(state.viewZoom, 0.38);
+  const centerLat = (bounds.minLat + bounds.maxLat) / 2 + state.panLat;
+  const centerLon = (bounds.minLon + bounds.maxLon) / 2 + state.panLon;
+  const latSpan = Math.max(bounds.latSpan / zoom, 0.0001);
+  const lonSpan = Math.max(bounds.lonSpan / zoom, 0.0001);
+  return {
+    minLat: centerLat - latSpan / 2,
+    maxLat: centerLat + latSpan / 2,
+    minLon: centerLon - lonSpan / 2,
+    maxLon: centerLon + lonSpan / 2,
+    latSpan,
+    lonSpan,
+  };
 }
 
 function saveStoredMapPackage(mapPackage) {
@@ -913,6 +1320,8 @@ function saveStoredMapPackage(mapPackage) {
     maxZoom: mapPackage.maxZoom,
     tileCount: mapPackage.tileCount,
     bounds: mapPackage.bounds,
+    selectedRegion: state.selectedRegion,
+    recommendedFile: mapPackage.metadata?.recommendedFile,
   };
   localStorage.setItem(storedMapPackageKey, JSON.stringify(stored));
 }
@@ -924,11 +1333,14 @@ function restoreStoredMapPackage() {
     state.mapPackage = {
       ...stored,
       db: null,
-      metadata: {},
+      metadata: { recommendedFile: stored.recommendedFile },
       isRaster: false,
       scheme: stored.type || 'stored',
       restored: true,
     };
+    state.selectedRegion = regionCatalog[stored.selectedRegion] ? stored.selectedRegion : 'north';
+    if (stored.type === 'region') state.bounds = stored.bounds;
+    updateRegionSelection();
     updateMapPackageSummary();
     updateDepartureChecklist();
     setSafetyStatus('已載入上次匯入的魯地圖設定', 'ok');
@@ -1208,6 +1620,8 @@ function updateMapPackageSummary() {
     elements.mapStatus.textContent = '可直接匯入 GPX 使用線上地形底圖；需要離線底圖時再匯入 `.mbtiles`。';
   } else if (item.type === 'mapsforge') {
     elements.mapStatus.textContent = '魯地圖 `.map` 目前只讀取範圍，PWA 尚不能完整渲染 Mapsforge 圖層；若要完整區域底圖，請改匯入 raster `.mbtiles`。';
+  } else if (item.type === 'region') {
+    elements.mapStatus.textContent = `已切到${item.fileName}；目前先用線上地形預覽，離線使用請匯入 ${item.metadata.recommendedFile}。`;
   } else if (item.isRaster) {
     elements.mapStatus.textContent = 'Raster MBTiles 已載入，會依目前位置或 GPX 範圍顯示可用圖磚。';
   } else {
@@ -1223,13 +1637,24 @@ function getMapRenderNote(mapPackage) {
   return '已匯入，vector PBF 尚未在 PWA 渲染';
 }
 
+function createBounds(minLon, minLat, maxLon, maxLat) {
+  return {
+    minLat,
+    maxLat,
+    minLon,
+    maxLon,
+    latSpan: Math.max(maxLat - minLat, 0.0001),
+    lonSpan: Math.max(maxLon - minLon, 0.0001),
+  };
+}
+
 async function drawRasterMap(width, height) {
   const mapPackage = state.mapPackage;
   const bounds = getViewBounds();
-  if (!mapPackage?.isRaster || !bounds) return;
+  if (!mapPackage?.isRaster || !bounds) return false;
   const zoom = chooseRasterZoom(mapPackage, bounds, width, height);
   const tileRange = getTileRange(bounds, zoom);
-  if (!tileRange) return;
+  if (!tileRange) return false;
 
   const tiles = [];
   const statement = mapPackage.db.prepare(
@@ -1252,18 +1677,20 @@ async function drawRasterMap(width, height) {
     const bottomRight = tileToLonLat(tile.x + 1, tile.y + 1, zoom);
     const start = projectIntoBounds({ lon: topLeft.lon, lat: topLeft.lat }, width, height, bounds);
     const end = projectIntoBounds({ lon: bottomRight.lon, lat: bottomRight.lat }, width, height, bounds);
-    if (state.layers.highContrast) ctx.filter = 'contrast(1.08) saturate(1.08)';
+    ctx.filter = state.layers.highContrast
+      ? 'contrast(1.14) saturate(1.1) brightness(1.02)'
+      : 'contrast(0.94) saturate(0.84) brightness(1.08)';
     ctx.drawImage(tile.image, start.x, start.y, end.x - start.x, end.y - start.y);
     ctx.filter = 'none';
   }
 
-  if (state.layers.route && state.routePoints.length >= 2 && state.bounds) drawRoute(width, height);
-  if (state.lastAcceptedPosition) updateGpsDot(state.lastAcceptedPosition);
+  return tiles.length > 0;
 }
 
 function chooseRasterZoom(mapPackage, bounds, width, height) {
   let selected = mapPackage.minZoom;
-  for (let zoom = mapPackage.maxZoom; zoom >= mapPackage.minZoom; zoom -= 1) {
+  const maxZoom = Math.min(mapPackage.maxZoom, mapPackage.maxZoom + Math.round(Math.log2(state.viewZoom)));
+  for (let zoom = maxZoom; zoom >= mapPackage.minZoom; zoom -= 1) {
     const range = getTileRange(bounds, zoom);
     if (!range) continue;
     const tileTotal = (range.maxX - range.minX + 1) * (range.maxY - range.minY + 1);

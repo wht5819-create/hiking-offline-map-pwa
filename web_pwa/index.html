@@ -11,30 +11,42 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <link rel="stylesheet" href="styles.css?v=22" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css?v=38" />
+    <link rel="stylesheet" href="styles.css?v=38" />
   </head>
   <body>
     <main class="app-shell">
       <section class="map-stage" aria-label="魯地圖">
+        <div id="leafletMap"></div>
         <canvas id="mapCanvas" width="900" height="900"></canvas>
         <div class="gps-dot" id="gpsDot" hidden></div>
-        <div class="status-pill" id="safetyStatus">按示範載入地圖</div>
+        <div class="status-pill" id="safetyStatus">請選擇地圖分區</div>
 
         <button class="icon-button" id="installButton" type="button" title="安裝" hidden>
           <span aria-hidden="true">↓</span>
-        </button>
-
-        <button id="demoButton" class="play-button" type="button" aria-label="載入示範" title="載入示範">
-          <span aria-hidden="true">▶</span>
         </button>
 
         <button id="trackingButton" class="locate-button" type="button" aria-label="定位">
           <span aria-hidden="true">⌖</span>
         </button>
 
+        <div class="zoom-controls" aria-label="縮放">
+          <button id="zoomInButton" type="button" aria-label="放大">+</button>
+          <button id="zoomOutButton" type="button" aria-label="縮小">−</button>
+        </div>
+
         <details class="tool-drawer">
           <summary aria-label="圖層與工具">☰</summary>
           <section class="controls" aria-label="圖層與地圖操作">
+            <label class="file-button native-file-button primary-file-button">
+              <span>匯入 GPX</span>
+              <input id="gpxInput" class="native-file-input visible-file-input" type="file" />
+            </label>
+            <label class="file-button native-file-button">
+              <span>匯入圖</span>
+              <input id="mapInput" class="native-file-input" type="file" accept=".mbtiles,.map,.sqlite,.db,application/octet-stream,application/vnd.sqlite3" />
+            </label>
+            <div class="tool-divider"></div>
             <h2>圖層</h2>
             <label class="layer-toggle">
               <input id="routeLayerToggle" type="checkbox" checked />
@@ -45,36 +57,20 @@
               <span>航點</span>
             </label>
             <label class="layer-toggle">
-              <input id="contrastLayerToggle" type="checkbox" checked />
+              <input id="contrastLayerToggle" type="checkbox" />
               <span>清晰底圖</span>
-            </label>
-            <label class="layer-toggle disabled">
-              <input type="checkbox" checked disabled />
-              <span>10m 等高線</span>
-            </label>
-            <label class="layer-toggle disabled">
-              <input type="checkbox" disabled />
-              <span>通訊點 / 困難路線</span>
             </label>
             <div class="tool-divider"></div>
             <h2>地圖分區</h2>
             <div class="region-list" id="regionList">
-              <button type="button" data-region="demo">示範區</button>
               <button type="button" data-region="north">北部</button>
               <button type="button" data-region="central">中部</button>
               <button type="button" data-region="south">南部</button>
               <button type="button" data-region="east">東部</button>
               <button type="button" data-region="all">全台</button>
             </div>
+            <p class="region-status" id="regionStatus">目前：北部</p>
             <div class="tool-divider"></div>
-            <label class="file-button">
-              <input id="mapInput" type="file" accept=".mbtiles,.map,.sqlite,.db,application/octet-stream,application/vnd.sqlite3" />
-              匯入圖
-            </label>
-            <label class="file-button">
-              <input id="gpxInput" type="file" accept=".gpx,application/gpx+xml,text/xml" />
-              匯入 GPX
-            </label>
             <button id="clearButton" type="button">清除</button>
           </section>
         </details>
@@ -130,7 +126,8 @@
         <ul id="waypointList" class="waypoint-list"></ul>
       </section>
     </main>
-    <script src="vendor/sqljs/sql-wasm.js?v=22"></script>
-    <script src="app.js?v=22" type="module"></script>
+    <script src="vendor/leaflet/leaflet.js?v=38"></script>
+    <script src="vendor/sqljs/sql-wasm.js?v=38"></script>
+    <script src="app.js?v=38" type="module"></script>
   </body>
 </html>

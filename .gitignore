@@ -2,6 +2,7 @@
 npm-cache-deploy/
 .netlify/
 .netlify-cli-temp/
+.firebase/
 .localappdata/
 .playwright-cache/
 output/
@@ -16,6 +17,10 @@ _github_pages_web_pwa/
 *.map.zip
 *.poi
 deploy-*.zip
+firebase-debug.log
+firepit-log.txt
 web_pwa/server.log
 web_pwa/server.err.log
 web_pwa/server-bg*.log
+web_pwa/maps/
+*.mbtiles

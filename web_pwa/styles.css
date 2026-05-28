@@ -47,15 +47,61 @@ input {
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.22), transparent 30%),
-    linear-gradient(135deg, #a9be6d, #d7d08a 52%, #9cb96b);
+  background: #dfe7c7;
 }
 
 #mapCanvas {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+#mapCanvas:active {
+  cursor: grabbing;
+}
+
+#leafletMap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #dfe7c7;
+}
+
+#leafletMap:empty {
+  display: none;
+}
+
+#leafletMap .leaflet-tile {
+  filter: saturate(0.88) contrast(0.96) brightness(1.06);
+}
+
+#leafletMap .leaflet-control-attribution {
+  display: none;
+}
+
+.leaflet-waypoint-pin {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #1d75ca;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(23, 42, 64, 0.28);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.leaflet-waypoint-pin span {
+  transform: translateY(-0.5px);
+}
+
+#mapCanvas {
+  position: relative;
+  z-index: 0;
 }
 
 .status-pill {
@@ -82,7 +128,6 @@ input {
 }
 
 .icon-button,
-.play-button,
 .locate-button,
 .tool-drawer > summary {
   border: 0;
@@ -102,38 +147,7 @@ input {
   width: 44px;
   height: 44px;
   font-size: 1.25rem;
-}
-
-.play-button {
-  position: absolute;
-  left: 50%;
-  bottom: max(28px, calc(env(safe-area-inset-bottom) + 20px));
-  width: 76px;
-  height: 76px;
-  transform: translateX(-50%);
-  background: #fff;
-}
-
-.play-button span {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  padding-left: 4px;
-  background: var(--red);
-  color: #fff;
-  box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.22);
-  font-size: 1.65rem;
-  line-height: 1;
-}
-
-.play-button:disabled {
-  opacity: 0.72;
-}
-
-.play-button:disabled span {
-  background: var(--green);
+  z-index: 3;
 }
 
 .locate-button {
@@ -143,12 +157,41 @@ input {
   width: 56px;
   height: 56px;
   font-size: 1.65rem;
+  z-index: 3;
+}
+
+.zoom-controls {
+  position: absolute;
+  right: max(14px, env(safe-area-inset-right));
+  top: max(144px, calc(env(safe-area-inset-top) + 134px));
+  z-index: 3;
+  display: grid;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow);
+}
+
+.zoom-controls button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--green-strong);
+  font-size: 1.55rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.zoom-controls button + button {
+  border-top: 1px solid var(--line);
 }
 
 .tool-drawer {
   position: absolute;
   right: max(14px, env(safe-area-inset-right));
   top: max(76px, calc(env(safe-area-inset-top) + 66px));
+  z-index: 4;
 }
 
 .tool-drawer > summary {
@@ -169,12 +212,16 @@ input {
   top: 68px;
   right: 0;
   width: min(240px, calc(100vw - 28px));
+  max-height: calc(100dvh - 156px - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 8px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.93);
   box-shadow: var(--shadow);
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .controls button,
@@ -190,6 +237,56 @@ input {
   color: var(--green-strong);
   font-size: 0.92rem;
   font-weight: 800;
+}
+
+.native-file-button {
+  position: relative;
+  overflow: visible;
+  align-content: center;
+  gap: 6px;
+}
+
+.native-file-button span {
+  pointer-events: none;
+}
+
+.native-file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.01;
+  cursor: pointer;
+}
+
+.visible-file-input {
+  position: static;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  min-height: 34px;
+  opacity: 1;
+  cursor: pointer;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.visible-file-input::file-selector-button {
+  min-height: 30px;
+  margin-right: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--green-strong);
+  font: inherit;
+  font-weight: 800;
+}
+
+.primary-file-button {
+  min-height: 72px;
+  background: var(--green);
+  color: #fff;
 }
 
 .controls h2 {
@@ -229,13 +326,21 @@ input {
   font-size: 0.86rem;
 }
 
+.region-list button.active {
+  background: var(--green);
+  color: #fff;
+}
+
+.region-status {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .tool-divider {
   height: 1px;
   background: var(--line);
-}
-
-.file-button input {
-  display: none;
 }
 
 .gps-dot {

@@ -1,15 +1,17 @@
-const CACHE_NAME = 'hiking-pwa-v22';
+const CACHE_NAME = 'hiking-pwa-v38';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css?v=22',
-  './app.js?v=22',
+  './styles.css?v=38',
+  './app.js?v=38',
   './manifest.webmanifest',
   './assets/icon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',
-  './vendor/sqljs/sql-wasm.js?v=22',
+  './vendor/sqljs/sql-wasm.js?v=38',
   './vendor/sqljs/sql-wasm.wasm',
+  './vendor/leaflet/leaflet.css?v=38',
+  './vendor/leaflet/leaflet.js?v=38',
   './sample/demo-route.gpx',
   './sample/rudy-route-z12-z16.mbtiles',
 ];
@@ -32,6 +34,12 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('./index.html')),
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
